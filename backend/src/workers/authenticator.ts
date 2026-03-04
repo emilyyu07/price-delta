@@ -15,7 +15,9 @@ export const registerUser = async (email: string, password: string) => {
     select: { id: true, email: true },
   });
 
-  const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, { expiresIn: "1h" });
+  const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, {
+    expiresIn: "1h",
+  });
   return { token, user: newUser };
 };
 

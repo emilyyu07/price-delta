@@ -15,6 +15,13 @@ router.get("/track/:listingId/status", getTrackStatus);
 router.get("/", async (_req, res, next) => {
   try {
     const products = await prisma.product.findMany({
+      where: {
+        listings: {
+          some: {
+            isActive: true,
+          },
+        },
+      },
       select: {
         id: true,
         externalId: true,
@@ -22,6 +29,7 @@ router.get("/", async (_req, res, next) => {
         description: true,
         category: true,
         imageUrl: true,
+        url: true,
         createdAt: true,
         updatedAt: true,
         listings: {
@@ -63,6 +71,7 @@ router.get("/:id", async (req, res, next) => {
         description: true,
         category: true,
         imageUrl: true,
+        url: true,
         createdAt: true,
         updatedAt: true,
         listings: {

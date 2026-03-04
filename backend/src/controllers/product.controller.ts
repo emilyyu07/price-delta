@@ -38,7 +38,6 @@ export const trackProduct = async (req: Request, res: Response) => {
     // create "pending" Listing in PostgreSQL so we have an ID
     const listing = await prisma.productListing.upsert({
       where: {
-        // Prisma generates a special compound key for @@unique([productId, retailerId])
         productId_retailerId: {
           productId: product.id,
           retailerId: retailer.id,

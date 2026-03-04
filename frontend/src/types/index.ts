@@ -7,6 +7,7 @@ export interface Product {
   description?: string;
   category?: string;
   imageUrl?: string;
+  url?: string;
   createdAt: string;
   updatedAt: string;
   listings: ProductListing[];

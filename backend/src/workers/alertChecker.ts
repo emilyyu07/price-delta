@@ -41,6 +41,9 @@ export async function checkAlertsForProduct(
           `[Alert Engine] 🚨 ALERT TRIGGERED for User ${alert.user.email}!`,
         );
 
+        // Get product URL directly from product model
+        const productUrl = alert.product.url || "https://www.aritzia.com";
+
         // Update the database first
         await prisma.$transaction([
           prisma.notification.create({
@@ -68,7 +71,7 @@ export async function checkAlertsForProduct(
             alert.user.email,
             alert.product.title,
             newPrice,
-            alert.product.url || "https://www.aritzia.com",
+            productUrl,
           ).catch((err) => console.error("Email error:", err));
         }
       }
