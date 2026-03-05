@@ -12,12 +12,12 @@ export const Button: React.FC<ButtonProps> = ({
   className,
   ...props
 }) => {
-  const baseStyles = 'font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseStyles = 'font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors';
 
   const variantStyles = {
-    primary: 'bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-400',
-    secondary: 'bg-accent-200 text-accent-800 hover:bg-accent-300 focus:ring-accent-400',
-    danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-400',
+    primary: 'bg-primary-700 text-white hover:bg-primary-600 focus:ring-primary-400',
+    secondary: 'bg-primary-100 text-primary-800 hover:bg-primary-200 focus:ring-primary-300',
+    danger: 'bg-danger text-white hover:bg-red-600 focus:ring-red-400',
   };
 
   const sizeStyles = {

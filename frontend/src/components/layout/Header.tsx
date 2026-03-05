@@ -11,10 +11,10 @@ export const Header: React.FC = () => {
   const closeMenu = () => setIsMenuOpen(false);
 
   return (
-    <header className="bg-primary-100 text-primary-900 p-4 shadow-md relative">
+    <header className="bg-surface text-primary-900 p-4 shadow-md relative border-b border-primary-200">
       <div className="container mx-auto flex justify-between items-center">
         <h1 className="text-xl font-bold">
-          <Link to="/" className="hover:text-primary-700 transition-colors">PriceDelta</Link>
+          <Link to="/" className="text-primary-700 hover:text-primary-600 transition-colors">PriceDelta</Link>
         </h1>
         
         {/* Desktop Navigation */}
@@ -23,42 +23,42 @@ export const Header: React.FC = () => {
             <>
               <Link 
                 to="/dashboard" 
-                className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                 onClick={closeMenu}
               >
                 Dashboard
               </Link>
               <Link 
                 to="/products" 
-                className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                 onClick={closeMenu}
               >
                 Products
               </Link>
               <Link 
                 to="/alerts" 
-                className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                 onClick={closeMenu}
               >
                 Alerts
               </Link>
               <Link 
                 to="/notifications" 
-                className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                 onClick={closeMenu}
               >
                 Notifications
               </Link>
               <Link 
                 to="/profile" 
-                className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                 onClick={closeMenu}
               >
                 Profile
               </Link>
               <button 
                 onClick={logout} 
-                className="px-3 py-2 rounded-md text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+                className="px-3 py-2 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-600 transition-colors"
               >
                 Logout
               </button>
@@ -67,14 +67,14 @@ export const Header: React.FC = () => {
             <>
               <Link 
                 to="/login" 
-                className="px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                 onClick={closeMenu}
               >
                 Login
               </Link>
               <Link 
                 to="/register" 
-                className="px-3 py-2 rounded-md text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+                className="px-3 py-2 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-600 transition-colors"
                 onClick={closeMenu}
               >
                 Register
@@ -86,7 +86,7 @@ export const Header: React.FC = () => {
         {/* Mobile Menu Button */}
         <button 
           onClick={toggleMenu}
-          className="md:hidden p-2 rounded-md hover:bg-primary-200 transition-colors"
+          className="md:hidden p-2 rounded-md text-primary-800 hover:bg-primary-100 transition-colors"
           aria-label="Toggle menu"
         >
           {isMenuOpen ? (
@@ -99,41 +99,41 @@ export const Header: React.FC = () => {
 
       {/* Mobile Navigation - Fixed positioning */}
       {isMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-primary-100 border-t border-primary-200 shadow-lg z-50">
+        <div className="md:hidden absolute top-full left-0 right-0 bg-surface border-t border-primary-200 shadow-lg z-50">
           <nav className="container mx-auto py-4 flex flex-col space-y-2">
             {isAuthenticated ? (
               <>
                 <Link 
                   to="/dashboard" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                   onClick={closeMenu}
                 >
                   Dashboard
                 </Link>
                 <Link 
                   to="/products" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                   onClick={closeMenu}
                 >
                   Products
                 </Link>
                 <Link 
                   to="/alerts" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                   onClick={closeMenu}
                 >
                   Alerts
                 </Link>
                 <Link 
                   to="/notifications" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                   onClick={closeMenu}
                 >
                   Notifications
                 </Link>
                 <Link 
                   to="/profile" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                   onClick={closeMenu}
                 >
                   Profile
@@ -143,7 +143,7 @@ export const Header: React.FC = () => {
                     logout();
                     closeMenu();
                   }} 
-                  className="w-full text-left px-3 py-2 rounded-md text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+                  className="block px-3 py-2 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-600 transition-colors"
                 >
                   Logout
                 </button>
@@ -152,14 +152,14 @@ export const Header: React.FC = () => {
               <>
                 <Link 
                   to="/login" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-200 transition-colors"
+                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
                   onClick={closeMenu}
                 >
                   Login
                 </Link>
                 <Link 
                   to="/register" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+                  className="block px-3 py-2 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-600 transition-colors"
                   onClick={closeMenu}
                 >
                   Register

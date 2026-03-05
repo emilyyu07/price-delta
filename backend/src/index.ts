@@ -7,6 +7,7 @@ import alertRoutes from "./routes/alert.routes";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import notificationRoutes from "./routes/notification.routes";
+import notificationStreamRoutes from "./routes/notification-stream.routes";
 import { errorHandler } from "./middleware/errorHandler";
 
 const app = express(); //initialize express application
@@ -26,6 +27,7 @@ app.use("/api/alerts", alertRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/notifications/stream", notificationStreamRoutes);
 
 //global error handling
 app.use(errorHandler);

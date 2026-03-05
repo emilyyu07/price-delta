@@ -23,8 +23,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-primary-100 flex items-center justify-center">
-        <div className="text-primary-800">Loading...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-primary-900">Loading...</div>
       </div>
     );
   }
@@ -33,7 +33,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  return <Layout>{children}</Layout>;
+  return <>{children}</>;
 };
 
 const App: React.FC = () => {
@@ -41,8 +41,8 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-primary-100 flex items-center justify-center">
-        <div className="text-primary-800">Loading...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-primary-900">Loading...</div>
       </div>
     );
   }
@@ -60,7 +60,9 @@ const App: React.FC = () => {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <Layout>
+                <Dashboard />
+              </Layout>
             </ProtectedRoute>
           }
         />
@@ -68,7 +70,9 @@ const App: React.FC = () => {
           path="/products"
           element={
             <ProtectedRoute>
-              <ProductsPage />
+              <Layout>
+                <ProductsPage />
+              </Layout>
             </ProtectedRoute>
           }
         />
@@ -76,7 +80,9 @@ const App: React.FC = () => {
           path="/products/:id"
           element={
             <ProtectedRoute>
-              <ProductDetailPage />
+              <Layout>
+                <ProductDetailPage />
+              </Layout>
             </ProtectedRoute>
           }
         />
@@ -84,7 +90,9 @@ const App: React.FC = () => {
           path="/alerts"
           element={
             <ProtectedRoute>
-              <AlertsPage />
+              <Layout>
+                <AlertsPage />
+              </Layout>
             </ProtectedRoute>
           }
         />
@@ -92,7 +100,9 @@ const App: React.FC = () => {
           path="/notifications"
           element={
             <ProtectedRoute>
-              <NotificationsPage />
+              <Layout>
+                <NotificationsPage />
+              </Layout>
             </ProtectedRoute>
           }
         />
@@ -100,7 +110,9 @@ const App: React.FC = () => {
           path="/profile"
           element={
             <ProtectedRoute>
-              <ProfilePage />
+              <Layout>
+                <ProfilePage />
+              </Layout>
             </ProtectedRoute>
           }
         />

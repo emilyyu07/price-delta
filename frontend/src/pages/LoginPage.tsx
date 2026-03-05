@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom'; // Import Link
-import { TrendingDown } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -41,7 +40,7 @@ export const LoginPage: React.FC = () => {
       <div className="max-w-md w-full">
         {/* Logo and branding */}
         <div className="text-center mb-8">
-          <TrendingDown className="h-12 w-12 text-primary-500 mx-auto mb-4" />
+          <img src="/favicon.png" alt="PriceDelta" className="h-40 w-auto mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-primary-900">PriceDelta</h1>
           <p className="text-primary-600 mt-2">Your wallet called. It wants a smarter you.</p>
         </div>
