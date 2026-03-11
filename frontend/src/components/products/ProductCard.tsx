@@ -22,14 +22,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) =>
     : 'Price not available';
 
   return (
-    <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200" onClick={() => onClick(product.id)}>
-      <img src={imageUrl} alt={product.title} className="w-full h-64 object-cover rounded-md mb-4" />
-      <h3 className="text-lg font-semibold text-primary-800 mb-2">{product.title}</h3>
+    <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-105" onClick={() => onClick(product.id)}>
+      <img src={imageUrl} alt={product.title} className="w-full h-64 object-cover rounded-lg mb-4" />
+      <h3 className="text-lg font-semibold font-chic text-primary-800 mb-2 leading-tight">{product.title}</h3>
       {product.category && (
-        <p className="text-sm text-primary-500 mb-2">{product.category}</p>
+        <p className="text-sm text-primary-500 font-sleek mb-3 uppercase tracking-wide">{product.category}</p>
       )}
       <div className="flex justify-between items-center">
-        <span className="text-xl font-bold text-primary-600">{priceDisplay}</span>
+        <span className="text-xl font-bold font-chic text-primary-600">{priceDisplay}</span>
       </div>
     </Card>
   );

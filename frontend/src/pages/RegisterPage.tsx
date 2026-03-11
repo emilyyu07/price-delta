@@ -48,13 +48,13 @@ export const RegisterPage: React.FC = () => {
         {/* Logo and branding */}
         <div className="text-center mb-8">
           <TrendingDown className="h-12 w-12 text-primary-500 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-primary-900">PriceDelta</h1>
-          <p className="text-primary-600 mt-2">Want to start saving big? Create an account!</p>
+          <h1 className="text-3xl font-bold font-chic text-primary-900">PriceDelta</h1>
+          <p className="text-primary-600 mt-2 font-sleek">Want to start saving big? Create an account!</p>
         </div>
 
         {/* Registration form */}
         <Card>
-          <h2 className="text-2xl font-bold text-primary-800 mb-6">Sign Up</h2>
+          <h2 className="text-2xl font-bold font-chic text-primary-800 mb-6">Sign Up</h2>
           
           <div className="space-y-4">
             <Input
@@ -88,7 +88,7 @@ export const RegisterPage: React.FC = () => {
             />
 
             {error && (
-              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-xl font-sleek">
                 {error}
               </div>
             )}
@@ -102,9 +102,9 @@ export const RegisterPage: React.FC = () => {
             </Button>
           </div>
 
-          <p className="text-sm text-primary-600 text-center mt-4">
+          <p className="text-sm text-primary-600 text-center mt-4 font-sleek">
             Already have an account?{' '}
-            <Link to="/login" className="text-accent-500 hover:underline">
+            <Link to="/login" className="text-accent-500 hover:underline font-chic">
               Sign In
             </Link>
           </p>

@@ -11,54 +11,54 @@ export const Header: React.FC = () => {
   const closeMenu = () => setIsMenuOpen(false);
 
   return (
-    <header className="bg-surface text-primary-900 p-4 shadow-md relative border-b border-primary-200">
-      <div className="container mx-auto flex justify-between items-center">
-        <h1 className="text-xl font-bold">
-          <Link to="/" className="text-primary-700 hover:text-primary-600 transition-colors">PriceDelta</Link>
+    <header className="fixed top-0 left-0 right-0 z-50 bg-primary-50/60 backdrop-blur-xl border-b border-primary-200/30 shadow-lg">
+      <div className="container mx-auto flex justify-between items-center py-8 px-4">
+        <h1 className="text-2xl font-bold font-chic">
+          <Link to="/" className="bg-gradient-to-r from-primary-700 to-primary-900 bg-clip-text text-transparent hover:from-primary-600 hover:to-primary-800 transition-all duration-300">PriceDelta</Link>
         </h1>
         
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-4">
+        <nav className="hidden md:flex items-center space-x-6">
           {isAuthenticated ? (
             <>
               <Link 
                 to="/dashboard" 
-                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                className="px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                 onClick={closeMenu}
               >
                 Dashboard
               </Link>
               <Link 
                 to="/products" 
-                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                className="px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                 onClick={closeMenu}
               >
                 Products
               </Link>
               <Link 
                 to="/alerts" 
-                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                className="px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                 onClick={closeMenu}
               >
                 Alerts
               </Link>
               <Link 
                 to="/notifications" 
-                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                className="px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                 onClick={closeMenu}
               >
                 Notifications
               </Link>
               <Link 
                 to="/profile" 
-                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                className="px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                 onClick={closeMenu}
               >
                 Profile
               </Link>
               <button 
                 onClick={logout} 
-                className="px-3 py-2 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-600 transition-colors"
+                className="px-4 py-3 rounded-xl text-sm font-semibold font-chic bg-gradient-to-r from-primary-600 to-primary-700 text-white hover:from-primary-700 hover:to-primary-800 transition-all duration-300 hover:shadow-lg hover:scale-105 border border-primary-500/20"
               >
                 Logout
               </button>
@@ -67,14 +67,14 @@ export const Header: React.FC = () => {
             <>
               <Link 
                 to="/login" 
-                className="px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                className="px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                 onClick={closeMenu}
               >
                 Login
               </Link>
               <Link 
                 to="/register" 
-                className="px-3 py-2 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-600 transition-colors"
+                className="px-4 py-3 rounded-xl text-sm font-semibold font-chic bg-gradient-to-r from-primary-600 to-primary-700 text-white hover:from-primary-700 hover:to-primary-800 transition-all duration-300 hover:shadow-lg hover:scale-105 border border-primary-500/20"
                 onClick={closeMenu}
               >
                 Register
@@ -86,7 +86,7 @@ export const Header: React.FC = () => {
         {/* Mobile Menu Button */}
         <button 
           onClick={toggleMenu}
-          className="md:hidden p-2 rounded-md text-primary-800 hover:bg-primary-100 transition-colors"
+          className="md:hidden p-3 rounded-xl text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
           aria-label="Toggle menu"
         >
           {isMenuOpen ? (
@@ -99,41 +99,41 @@ export const Header: React.FC = () => {
 
       {/* Mobile Navigation - Fixed positioning */}
       {isMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-surface border-t border-primary-200 shadow-lg z-50">
-          <nav className="container mx-auto py-4 flex flex-col space-y-2">
+        <div className="md:hidden absolute top-full left-0 right-0 bg-primary-50/80 backdrop-blur-xl border-t border-primary-200/30 shadow-xl z-50">
+          <nav className="container mx-auto py-6 px-4 flex flex-col space-y-3">
             {isAuthenticated ? (
               <>
                 <Link 
                   to="/dashboard" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                  className="block px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                   onClick={closeMenu}
                 >
                   Dashboard
                 </Link>
                 <Link 
                   to="/products" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                  className="block px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                   onClick={closeMenu}
                 >
                   Products
                 </Link>
                 <Link 
                   to="/alerts" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                  className="block px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                   onClick={closeMenu}
                 >
                   Alerts
                 </Link>
                 <Link 
                   to="/notifications" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                  className="block px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                   onClick={closeMenu}
                 >
                   Notifications
                 </Link>
                 <Link 
                   to="/profile" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                  className="block px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                   onClick={closeMenu}
                 >
                   Profile
@@ -143,7 +143,7 @@ export const Header: React.FC = () => {
                     logout();
                     closeMenu();
                   }} 
-                  className="block px-3 py-2 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-600 transition-colors"
+                  className="block px-4 py-3 rounded-xl text-sm font-semibold font-chic bg-gradient-to-r from-primary-600 to-primary-700 text-white hover:from-primary-700 hover:to-primary-800 transition-all duration-300 hover:shadow-lg hover:scale-105 border border-primary-500/20 text-left"
                 >
                   Logout
                 </button>
@@ -152,14 +152,14 @@ export const Header: React.FC = () => {
               <>
                 <Link 
                   to="/login" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium text-primary-800 hover:bg-primary-100 transition-colors"
+                  className="block px-4 py-3 rounded-xl text-sm font-medium font-sleek text-primary-800 bg-primary-100/50 hover:bg-primary-100/70 backdrop-blur-sm border border-primary-200/40 hover:border-primary-200/60 transition-all duration-300 hover:shadow-md hover:scale-105"
                   onClick={closeMenu}
                 >
                   Login
                 </Link>
                 <Link 
                   to="/register" 
-                  className="block px-3 py-2 rounded-md text-sm font-medium bg-primary-700 text-white hover:bg-primary-600 transition-colors"
+                  className="block px-4 py-3 rounded-xl text-sm font-semibold font-chic bg-gradient-to-r from-primary-600 to-primary-700 text-white hover:from-primary-700 hover:to-primary-800 transition-all duration-300 hover:shadow-lg hover:scale-105 border border-primary-500/20"
                   onClick={closeMenu}
                 >
                   Register

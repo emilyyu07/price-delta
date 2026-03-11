@@ -7,6 +7,9 @@ import { alertsApi } from "../../api/alerts.js";
 import { notificationsApi } from "../../api/notifications.js";
 import {ProductTracker} from "./ProductTracker";
 import { AlertCircle, Tag, TrendingDown } from "lucide-react";
+import { AnimatedStatCard } from "../ui/AnimatedStats";
+import { PageTransition } from "../ui/PageTransitions";
+import { ParallaxBackground } from "../ui/PageTransitions";
 import type { Product } from "../../types/index.js";
 
 const Dashboard = () => {
@@ -67,65 +70,64 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="p-4">
-            {/* Merged Banner Section */}
-            <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-lg p-8 text-white mb-8">
-                <h1 className="text-4xl font-bold mb-2">Welcome back, {user?.name || user?.email || 'there'}!</h1>
-                <p className="text-xl mb-4">Your prices — on a leash. Set your price. We'll do the stalking.</p>
-                <p className="text-primary-100 mb-6">We look down so your savings go up. Check out your next big save!</p>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-primary-50 p-6 rounded-lg border border-primary-200 hover:shadow-lg transition">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Active Alerts</h3>
-                        <AlertCircle className="h-6 w-6 text-primary-600" />
+        <PageTransition type="fade">
+            <ParallaxBackground intensity={0.1}>
+                <div className="p-4">
+                    {/* Merged Banner Section */}
+                    <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-2xl p-8 text-white mb-8 animate-gradient-shift">
+                        <h1 className="text-4xl font-bold font-chic mb-2">Welcome back, {user?.name || user?.email || 'there'}!</h1>
+                        <p className="text-xl mb-4 font-sleek">Your prices — on a leash. Set your price. We'll do the stalking.</p>
+                        <p className="text-primary-100 mb-6 font-sleek">We look down so your savings go up. Check out your next big save!</p>
                     </div>
-                    <p className="text-3xl font-bold text-primary-900">
-                        {statsLoading ? '…' : activeAlertsCount}
-                    </p>
-                    <p className="text-sm text-primary-600 mt-2">Watching for price drops</p>
-                </div>
 
-                <div className="bg-primary-50 p-6 rounded-lg border border-primary-200 hover:shadow-lg transition">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Price Drops</h3>
-                        <TrendingDown className="h-6 w-6 text-primary-600" />
+                    {/* Stats Grid */}
+                    <div className="grid md:grid-cols-3 gap-6 mb-8">
+                        <AnimatedStatCard
+                            title="Active Alerts"
+                            value={activeAlertsCount}
+                            icon={<AlertCircle className="h-6 w-6" />}
+                            description="Watching for price drops"
+                            color="primary"
+                            delay={0}
+                        />
+
+                        <AnimatedStatCard
+                            title="Price Drops"
+                            value={priceDropsCount}
+                            icon={<TrendingDown className="h-6 w-6" />}
+                            description="Price drop notifications"
+                            color="success"
+                            delay={200}
+                        />
+
+                        <AnimatedStatCard
+                            title="Deals Notified"
+                            value={dealsNotifiedCount}
+                            icon={<Tag className="h-6 w-6" />}
+                            description="Deal notifications sent"
+                            color="accent"
+                            delay={400}
+                        />
                     </div>
-                    <p className="text-3xl font-bold text-primary-900">
-                        {statsLoading ? '…' : priceDropsCount}
-                    </p>
-                    <p className="text-sm text-primary-600 mt-2">Price drop notifications</p>
+
+                    {/* Product Tracker */}
+                    <ProductTracker />
+
+                    {/* Previously Searched Items */}
+                    <h2 className="text-xl font-semibold font-chic text-primary-700 mb-4">Previously Searched Items</h2>
+                    {loadingProducts ? (
+                        <p className="text-primary-600 font-sleek">Loading products...</p>
+                    ) : error ? (
+                        <p className="text-danger font-sleek">{error}</p>
+                    ) : products.length > 0 ? (
+                        <ProductGrid products={products} onProductClick={handleProductClick} />
+                    ) : (
+                        <p className="text-primary-600 font-sleek">No products found. Start tracking your first item!</p>
+                    )}
                 </div>
-
-                <div className="bg-primary-50 p-6 rounded-lg border border-primary-200 hover:shadow-lg transition">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Deals Notified</h3>
-                        <Tag className="h-6 w-6 text-primary-600" />
-                    </div>
-                    <p className="text-3xl font-bold text-primary-900">
-                        {statsLoading ? '…' : dealsNotifiedCount}
-                    </p>
-                    <p className="text-sm text-primary-600 mt-2">Price drops & target reached</p>
-                </div>
-            </div>
-
-            {/* Product Tracker */}
-            <ProductTracker />
-
-            {/* Previously Searched Items */}
-            <h2 className="text-xl font-semibold text-primary-700 mb-4">Previously Searched Items</h2>
-            {loadingProducts ? (
-                <p className="text-primary-600">Loading products...</p>
-            ) : error ? (
-                <p className="text-red-500">{error}</p>
-            ) : (
-                <ProductGrid products={products} onProductClick={handleProductClick} />
-            )}
-        </div>
+            </ParallaxBackground>
+        </PageTransition>
     );
 };
 
 export default Dashboard;
-  
