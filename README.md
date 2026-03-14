@@ -48,18 +48,50 @@ PriceDelta is a full-stack price tracking app that scrapes retail product pages 
 
 ```mermaid
 flowchart LR
-  U[User in React App] -->|Auth / Track URL / Read Products| API[Express API]
-  API -->|JWT-protected routes| DB[(PostgreSQL via Prisma)]
-  API -->|Enqueue scrape job| Q[(Redis BullMQ Queue)]
-  Q --> W[Scrape Worker]
-  W -->|Playwright scrape| R[Aritzia Product Page]
-  W -->|Save latest price + history| DB
-  W --> A[Alert Checker]
-  A -->|Create notifications| DB
-  A -->|Send price-drop email| M[SMTP / Nodemailer]
-  DB -->|Products, alerts, notifications| API
-  API -->|REST + SSE stream| U
-  C[node-cron] -->|Periodic/recent sync jobs| Q
+  User(["👤 User"])
+  subgraph Frontend ["Frontend (React + Vite)"]
+    UI["UI / Pages"]
+    Axios["Axios API Client"]
+    SSE["SSE Notification Stream"]
+  end
+  subgraph Backend ["Backend (Express)"]
+    API["REST API\n(Controllers / Routes)"]
+    Auth["JWT Auth Middleware"]
+    Service["Price Service\n(Prisma Transactions)"]
+    Cron["node-cron Scheduler"]
+    AlertChecker["Alert Checker"]
+  end
+  subgraph Queue ["Job Queue (BullMQ)"]
+    Producer["Queue Producer"]
+    Redis[("Redis")]
+    Worker["BullMQ Worker"]
+  end
+  subgraph Scraper ["Scraper"]
+    Playwright["Playwright\n(Headless Chromium)"]
+    RetailSite["🛍️ Retail Site"]
+  end
+  subgraph Storage ["Storage"]
+    Postgres[("PostgreSQL\n(Prisma ORM)")]
+  end
+  Mailer["📧 Nodemailer\n(SMTP)"]
+  User -->|"HTTP Requests"| UI
+  UI --> Axios
+  Axios -->|"REST"| API
+  API --> Auth
+  API --> Service
+  API --> Producer
+  Service --> Postgres
+  Producer --> Redis
+  Redis --> Worker
+  Worker --> Playwright
+  Playwright -->|"Scrape"| RetailSite
+  Playwright -->|"Price / Title / Image"| Service
+  Service --> AlertChecker
+  AlertChecker -->|"Threshold met"| Mailer
+  AlertChecker --> Postgres
+  Cron -->|"Periodic re-enqueue"| Producer
+  Backend -->|"SSE push"| SSE
+  SSE --> UI
 ```
 
 A URL submitted by the user is normalized, persisted as a `ProductListing` (`isActive: false`), and enqueued in Redis. A BullMQ worker picks up the job, launches a headless Chromium context, scrapes price / title / image, and writes the result inside a Prisma transaction. The alert checker then evaluates active `PriceAlert` records and dispatches Nodemailer emails when thresholds are met. Cron jobs re-enqueue stale listings on a schedule.
