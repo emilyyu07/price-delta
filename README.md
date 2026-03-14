@@ -46,23 +46,20 @@ PriceDelta is a full-stack price tracking app that scrapes retail product pages 
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    React Frontend                   │
-│  (Vite + Tailwind)  ←─ Axios ─→  Express REST API  │
-│                     ←─  SSE  ──  Notification Stream│
-└───────────────────────────┬─────────────────────────┘
-                            │ HTTP / SSE
-┌───────────────────────────▼─────────────────────────┐
-│                   Express Backend                   │
-│  Controllers → Services → Prisma ORM → PostgreSQL   │
-│                     ↕                               │
-│         BullMQ Producer  ←→  Redis Queue            │
-│                     ↕                               │
-│         BullMQ Worker → Playwright Scraper          │
-│                     ↕                               │
-│         Alert Checker → Nodemailer (SMTP)           │
-└─────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+  U[User in React App] -->|Auth / Track URL / Read Products| API[Express API]
+  API -->|JWT-protected routes| DB[(PostgreSQL via Prisma)]
+  API -->|Enqueue scrape job| Q[(Redis BullMQ Queue)]
+  Q --> W[Scrape Worker]
+  W -->|Playwright scrape| R[Aritzia Product Page]
+  W -->|Save latest price + history| DB
+  W --> A[Alert Checker]
+  A -->|Create notifications| DB
+  A -->|Send price-drop email| M[SMTP / Nodemailer]
+  DB -->|Products, alerts, notifications| API
+  API -->|REST + SSE stream| U
+  C[node-cron] -->|Periodic/recent sync jobs| Q
 ```
 
 A URL submitted by the user is normalized, persisted as a `ProductListing` (`isActive: false`), and enqueued in Redis. A BullMQ worker picks up the job, launches a headless Chromium context, scrapes price / title / image, and writes the result inside a Prisma transaction. The alert checker then evaluates active `PriceAlert` records and dispatches Nodemailer emails when thresholds are met. Cron jobs re-enqueue stale listings on a schedule.
