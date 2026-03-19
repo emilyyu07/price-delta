@@ -3,8 +3,8 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "moduleResolution": "NodeNext",
-    "module": "NodeNext",
+    "moduleResolution": "bundler",
+    "module": "ESNext",
     "target": "ES2022",
     "types": ["node"],
     "lib": ["esnext"],
@@ -17,12 +17,11 @@
     "noUnusedParameters": true,
     "noImplicitAny": false,
     "strict": true,
-    "jsx": "react-jsx",
     "verbatimModuleSyntax": false,
     "isolatedModules": true,
-    "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": false
   },
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules"],

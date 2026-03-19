@@ -191,7 +191,8 @@ async function scrapeAritziaPrice(productUrl) {
       console.log(`\u{1F4CA} [Scraper] Parsed price: $${cleanPrice}`);
       let productTitle = null;
       try {
-        const ogTitle = await page.locator('meta[property="og:title"]').getAttribute("content");
+        const ogTitleLocator = page.locator('meta[property="og:title"]').first();
+        const ogTitle = await ogTitleLocator.count() > 0 ? await ogTitleLocator.getAttribute("content", { timeout: 2e3 }) : null;
         if (ogTitle) {
           productTitle = ogTitle;
           console.log(`\u{1F4DD} [Scraper] Found OG title: ${productTitle}`);
@@ -217,7 +218,8 @@ async function scrapeAritziaPrice(productUrl) {
       }
       let imageUrl = null;
       try {
-        let ogImage = await page.locator('meta[property="og:image"]').getAttribute("content");
+        const ogImageLocator = page.locator('meta[property="og:image"]').first();
+        let ogImage = await ogImageLocator.count() > 0 ? await ogImageLocator.getAttribute("content", { timeout: 2e3 }) : null;
         if (ogImage) {
           if (ogImage.startsWith("//")) {
             ogImage = "https:" + ogImage;
@@ -228,7 +230,8 @@ async function scrapeAritziaPrice(productUrl) {
           console.log(`\u{1F5BC}\uFE0F [Scraper] Found OG image: ${imageUrl}`);
         }
         if (!imageUrl) {
-          const twitterImage = await page.locator('meta[name="twitter:image"]').getAttribute("content");
+          const twitterImageLocator = page.locator('meta[name="twitter:image"]').first();
+          const twitterImage = await twitterImageLocator.count() > 0 ? await twitterImageLocator.getAttribute("content", { timeout: 2e3 }) : null;
           if (twitterImage) {
             if (twitterImage.startsWith("//")) {
               imageUrl = "https:" + twitterImage;
@@ -241,9 +244,10 @@ async function scrapeAritziaPrice(productUrl) {
           }
         }
         if (!imageUrl) {
-          const productImage = await page.locator(
+          const productImageLocator = page.locator(
             'img[alt*="product"], img[data-testid="product-image"], .product-image img'
-          ).first().getAttribute("src");
+          ).first();
+          const productImage = await productImageLocator.count() > 0 ? await productImageLocator.getAttribute("src", { timeout: 2e3 }) : null;
           if (productImage) {
             if (productImage.startsWith("//")) {
               imageUrl = "https:" + productImage;

@@ -524,10 +524,10 @@ import { z as z4 } from "zod";
 import bcrypt from "bcryptjs";
 import jwt2 from "jsonwebtoken";
 import "dotenv/config";
-var registerUser = async (email, password) => {
+var registerUser = async (email, password, name) => {
   const normalizedEmail = email.toLowerCase().trim();
   if (!normalizedEmail || !password) {
-    throw new Error("Email and password are required.");
+    throw new Error("Email, password, and name are required.");
   }
   const existingUser = await prisma_default.user.findUnique({
     where: { email: normalizedEmail },
@@ -538,8 +538,12 @@ var registerUser = async (email, password) => {
   }
   const hashedPassword = await bcrypt.hash(password, 10);
   const newUser = await prisma_default.user.create({
-    data: { email: normalizedEmail, password: hashedPassword },
-    select: { id: true, email: true }
+    data: {
+      email: normalizedEmail,
+      password: hashedPassword,
+      name: name?.trim() || null
+    },
+    select: { id: true, email: true, name: true }
   });
   const token = jwt2.sign({ userId: newUser.id }, env.JWT_SECRET, {
     expiresIn: "1h"
@@ -569,9 +573,14 @@ var loginUser = async (email, password) => {
 
 // src/routes/auth.routes.ts
 var router4 = Router4();
-var authSchema = z4.object({
+var loginSchema = z4.object({
   email: z4.string().email("A valid email is required."),
   password: z4.string().min(8, "Password must be at least 8 characters.")
+});
+var registerSchema = z4.object({
+  email: z4.string().email("A valid email is required."),
+  password: z4.string().min(8, "Password must be at least 8 characters."),
+  name: z4.string().min(1, "Name is required.").max(100, "Name is too long.")
 });
 var authLimiter = rateLimit({
   windowMs: 15 * 60 * 1e3,
@@ -580,7 +589,7 @@ var authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 });
-router4.post("/login", authLimiter, validate(authSchema), async (req, res) => {
+router4.post("/login", authLimiter, validate(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.body;
     const result = await loginUser(email, password);
@@ -594,15 +603,15 @@ router4.post("/login", authLimiter, validate(authSchema), async (req, res) => {
 router4.post(
   "/register",
   authLimiter,
-  validate(authSchema),
+  validate(registerSchema),
   async (req, res) => {
     try {
-      const { email, password } = req.body;
-      const { token, user } = await registerUser(email, password);
+      const { email, password, name } = req.body;
+      const { token, user } = await registerUser(email, password, name);
       res.status(201).json({ token, user });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Registration failed.";
-      const status = message === "An account with this email already exists." || message === "Email and password are required." ? 400 : 500;
+      const status = message === "An account with this email already exists." || message === "Email, password, and name are required." ? 400 : 500;
       res.status(status).json({ error: message });
     }
   }
