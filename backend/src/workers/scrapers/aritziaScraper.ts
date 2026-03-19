@@ -1,43 +1,65 @@
 // web Scraper for Aritzia
 
-import { chromium } from "playwright";
-import type { Browser, BrowserContext } from "playwright";
+import { chromium as baseChromium } from "playwright";
+import { chromium as stealthChromium } from "playwright-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import type { Browser, BrowserContext, Page } from "playwright";
+
+stealthChromium.use(StealthPlugin());
 
 // keep a single global browser instance alive in memory
 let globalBrowser: Browser | null = null;
 
-export async function scrapeAritziaPrice(
-  productUrl: string,
-): Promise<{ price: number; imageUrl: string | null; title: string | null }> {
-  console.log(`🔍 [Scraper] Starting scrape for: ${productUrl}`);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  let context: BrowserContext | null = null;
+/** Uniformly random integer in [min, max] */
+const randInt = (min: number, max: number) =>
+  Math.floor(Math.random() * (max - min + 1)) + min;
 
-  // Add overall timeout protection
-  const timeout = 60000; // 60 seconds total timeout
-  let timeoutHandle: NodeJS.Timeout | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutHandle = setTimeout(() => {
-      if (context) {
-        void context.close().catch((closeError) => {
-          console.warn("⚠️ [Scraper] Failed to close timed-out context:", closeError);
-        });
-        context = null;
-      }
-      reject(new Error("Scrape timeout after 60 seconds"));
-    }, timeout);
-  });
+/** Sleep for a random duration in [minMs, maxMs] */
+const humanDelay = (minMs: number, maxMs: number) =>
+  new Promise<void>((res) => setTimeout(res, randInt(minMs, maxMs)));
 
+/**
+ * Simulate a human scrolling down the page gradually.
+ */
+async function humanScroll(page: Page): Promise<void> {
+  const scrollSteps = randInt(3, 6);
+  for (let i = 0; i < scrollSteps; i++) {
+    await page.mouse.wheel(0, randInt(200, 500));
+    await humanDelay(300, 700);
+  }
+  // Scroll back up slightly — humans rarely stay at the very bottom
+  await page.mouse.wheel(0, -randInt(100, 300));
+  await humanDelay(200, 500);
+}
+
+/**
+ * Move the mouse to a few random positions on screen.
+ */
+async function humanMouseMove(page: Page): Promise<void> {
+  const moves = randInt(2, 4);
+  for (let i = 0; i < moves; i++) {
+    await page.mouse.move(randInt(300, 1400), randInt(200, 800), {
+      steps: randInt(5, 15), // smooth arc, not a teleport
+    });
+    await humanDelay(100, 300);
+  }
+}
+
+// ─── Browser launch ───────────────────────────────────────────────────────────
+
+async function getOrLaunchBrowser(): Promise<Browser> {
+  // Liveness check — if Chromium crashed, globalBrowser is non-null but dead
   if (globalBrowser && !globalBrowser.isConnected()) {
-    console.warn("[Scraper] Browser disconnected. Relaunching browser instance.");
+    console.warn("[Scraper] Browser disconnected — relaunching.");
     await globalBrowser.close().catch(() => undefined);
     globalBrowser = null;
   }
 
-  // Initialize the browser only if it doesn't exist yet
   if (!globalBrowser) {
-    console.log(`🚀 [Scraper] Launching new browser instance...`);
-    globalBrowser = await chromium.launch({
+    console.log("🚀 [Scraper] Launching new browser instance...");
+    globalBrowser = await (stealthChromium as typeof baseChromium).launch({
       headless: true,
       args: [
         "--no-sandbox",
@@ -51,17 +73,96 @@ export async function scrapeAritziaPrice(
         "--disable-backgrounding-occluded-windows",
         "--memory-pressure-off",
         "--max_old_space_size=4096",
-        // Anti-detection flags
+        // Suppress automation flags
         "--disable-blink-features=AutomationControlled",
-        "--disable-web-security",
-        "--disable-features=VizDisplayCompositor",
+        // NOTE: --disable-web-security removed — it is itself a bot signal
+        // NOTE: --disable-features=VizDisplayCompositor removed — not needed
+        "--window-size=1920,1080",
       ],
     });
   }
-  const browser = globalBrowser;
-  if (!browser) {
-    throw new Error("Browser initialization failed");
-  }
+
+  return globalBrowser;
+}
+
+// ─── Context factory ──────────────────────────────────────────────────────────
+
+// Rotate through realistic macOS + Windows Chrome UAs
+const USER_AGENTS = [
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_3_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+];
+
+async function createContext(browser: Browser): Promise<BrowserContext> {
+  const userAgent = USER_AGENTS[randInt(0, USER_AGENTS.length - 1)];
+
+  return browser.newContext({
+    userAgent,
+    viewport: { width: 1920, height: 1080 },
+    deviceScaleFactor: 1,
+    hasTouch: false,
+    locale: "en-US",
+    timezoneId: "America/New_York",
+    ignoreHTTPSErrors: true,
+    bypassCSP: true,
+    javaScriptEnabled: true,
+    // Realistic HTTP headers — missing Accept-Language is a common bot signal
+    extraHTTPHeaders: {
+      "Accept-Language": "en-US,en;q=0.9",
+      "Accept-Encoding": "gzip, deflate, br",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+      "sec-ch-ua":
+        '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"macOS"',
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+      "Upgrade-Insecure-Requests": "1",
+    },
+  });
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
+
+export async function scrapeAritziaPrice(
+  productUrl: string,
+): Promise<{ price: number; imageUrl: string | null; title: string | null }> {
+  console.log(`🔍 [Scraper] Starting scrape for: ${productUrl}`);
+
+  let context: BrowserContext | null = null;
+
+  // Shared close guard — prevents double-close race between timeout and finally
+  let contextClosed = false;
+  let cancelled = false;
+
+  const closeContext = async () => {
+    if (!contextClosed && context) {
+      contextClosed = true;
+      await context
+        .close()
+        .catch((err) =>
+          console.warn("⚠️ [Scraper] Error closing context:", err),
+        );
+    }
+  };
+
+  // 90s total — networkidle needs more headroom than domcontentloaded
+  const timeout = 90000;
+  let timeoutHandle: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(async () => {
+      cancelled = true;
+      await closeContext();
+      reject(new Error("Scrape timeout after 90 seconds"));
+    }, timeout);
+  });
+
+  const browser = await getOrLaunchBrowser();
 
   const scrapeTask = async (): Promise<{
     price: number;
@@ -69,327 +170,214 @@ export async function scrapeAritziaPrice(
     title: string | null;
   }> => {
     try {
-    // Rotate user agents to avoid detection
-    const userAgents = [
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    ];
+      context = await createContext(browser);
+      const page = await context.newPage();
 
-    const randomUserAgent =
-      userAgents[Math.floor(Math.random() * userAgents.length)];
+      await page.route("**/*.{woff,woff2,ttf}", (route) => route.abort());
 
-    // reuse browser context with optimizations
-    context = await browser.newContext({
-      userAgent: randomUserAgent,
-      viewport: { width: 1920, height: 1080 },
-      deviceScaleFactor: 1,
-      hasTouch: false,
-      // Performance optimizations
-      ignoreHTTPSErrors: true,
-      bypassCSP: true,
-      // Reduce resource loading for faster scraping
-      javaScriptEnabled: true,
-      offline: false,
-      // Anti-detection measures
-      locale: "en-US",
-      timezoneId: "America/New_York",
-    });
-
-    // open a new tab
-    const page = await context.newPage();
-
-    // Add stealth measures
-    await page.addInitScript(() => {
-      // Remove webdriver property
-      Object.defineProperty(navigator, "webdriver", {
-        get: () => undefined,
-      });
-
-      // Override plugins
-      Object.defineProperty(navigator, "plugins", {
-        get: () => [1, 2, 3, 4, 5],
-      });
-
-      // Override languages
-      Object.defineProperty(navigator, "languages", {
-        get: () => ["en-US", "en"],
-      });
-    });
-
-    // Block unnecessary resources for faster loading
-    await page.route(
-      "**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,css}",
-      (route) => {
-        route.abort();
-      },
-    );
-
-    // Block analytics and tracking
-    await page.route("**/*.{analytics,pixel,tracking}", (route) => {
-      route.abort();
-    });
-
-    console.log(`🌐 [Scraper] Navigating to: ${productUrl}`);
-
-    // Navigate with optimized settings
-    await page.goto(productUrl, {
-      waitUntil: "domcontentloaded",
-      timeout: 30000,
-    });
-
-    // Random delay to appear more human (1.5-4 seconds)
-    const randomDelay = Math.floor(Math.random() * 2500) + 1500;
-    console.log(`⏳ [Scraper] Waiting ${randomDelay}ms to appear human...`);
-    await page.waitForTimeout(randomDelay);
-
-    // Check for bot detection signs
-    const pageTitle = await page.title();
-    if (
-      pageTitle.toLowerCase().includes("robot") ||
-      pageTitle.toLowerCase().includes("blocked") ||
-      pageTitle.toLowerCase().includes("access denied")
-    ) {
-      throw new Error("Bot detection detected - page blocked");
-    }
-
-    console.log(`🔍 [Scraper] Looking for price elements...`);
-
-    // DOM Extraction with multiple fallbacks
-    const priceSelectors = [
-      '[data-testid="product-list-price-text"]',
-      '[data-testid="product-list-sale-text"]',
-      ".price",
-      ".sale-price",
-      '[class*="price"]',
-      '[data-test*="price"]',
-    ];
-
-    let rawPriceText = "";
-    let priceFound = false;
-
-    // Try each selector
-    for (const selector of priceSelectors) {
-      try {
-        const element = page.locator(selector).first();
-        if ((await element.count()) > 0) {
-          rawPriceText = await element.innerText();
-          console.log(
-            `✅ [Scraper] Found price using selector "${selector}": ${rawPriceText}`,
-          );
-          priceFound = true;
-          break;
-        }
-      } catch (error) {
-        console.log(`❌ [Scraper] Selector "${selector}" failed:`, error);
-      }
-    }
-
-    if (!priceFound) {
-      // Try to find any element with price-like text
-      const priceElements = await page
-        .locator("text=/\\$[0-9]+\\.?[0-9]*/")
-        .all();
-      const firstPriceElement = priceElements[0];
-      if (firstPriceElement) {
-        rawPriceText = await firstPriceElement.innerText();
-        console.log(`✅ [Scraper] Found price using regex: ${rawPriceText}`);
-        priceFound = true;
-      }
-    }
-
-    if (!priceFound) {
-      throw new Error(
-        "DOM Parse Error: Could not find price element. Aritzia may have changed their DOM structure.",
+      // Block analytics/tracking — reduces noise, marginally faster
+      await page.route(
+        /google-analytics|googletagmanager|doubleclick|facebook\.net|hotjar|segment\.io/,
+        (route) => route.abort(),
       );
-    }
 
-    console.log(
-      `💰 [Scraper] Successfully extracted raw price string: ${rawPriceText}`,
-    );
+      if (cancelled) throw new Error("Scrape cancelled due to timeout");
 
-    // strip raw price text
-    const cleanPrice = parseFloat(rawPriceText.replace(/[^0-9.]/g, ""));
+      // Land on the homepage first ──────────────────────────────────
+      console.log("🏠 [Scraper] Visiting homepage to establish session...");
+      await page.goto("https://www.aritzia.com/en/aritzia", {
+        waitUntil: "domcontentloaded",
+        timeout: 30000,
+      });
+      await humanDelay(1500, 3000);
+      await humanMouseMove(page);
 
-    if (isNaN(cleanPrice)) {
-      throw new Error(`Failed to parse price string: ${rawPriceText}`);
-    }
+      if (cancelled) throw new Error("Scrape cancelled due to timeout");
 
-    console.log(`📊 [Scraper] Parsed price: $${cleanPrice}`);
+      // Navigate to the product page ────────────────────────────────
+      console.log(`🌐 [Scraper] Navigating to product: ${productUrl}`);
+      await page.goto(productUrl, {
+        waitUntil: "networkidle",
+        timeout: 45000,
+        referer: "https://www.aritzia.com/en/aritzia",
+      });
 
-    // extract product title
-    let productTitle: string | null = null;
-    try {
-      // First try: og:title meta tag
-      const ogTitle = await page
-        .locator('meta[property="og:title"]')
-        .getAttribute("content");
+      if (cancelled) throw new Error("Scrape cancelled due to timeout");
 
-      if (ogTitle) {
-        productTitle = ogTitle;
-        console.log(`📝 [Scraper] Found OG title: ${productTitle}`);
+      // Human-like behaviour before extraction ──────────────────────
+      const pauseMs = randInt(2000, 4000);
+      console.log(
+        `⏳ [Scraper] Pausing ${pauseMs}ms and simulating human behaviour...`,
+      );
+      await humanDelay(pauseMs / 2, pauseMs / 2);
+      await humanMouseMove(page);
+      await humanScroll(page);
+      await humanDelay(500, 1200);
+
+      if (cancelled) throw new Error("Scrape cancelled due to timeout");
+
+      // Bot-block check ──────────────────────────────────────────────
+      const pageTitle = await page.title();
+      if (
+        pageTitle.toLowerCase().includes("robot") ||
+        pageTitle.toLowerCase().includes("blocked") ||
+        pageTitle.toLowerCase().includes("access denied") ||
+        pageTitle.toLowerCase().includes("403")
+      ) {
+        throw new Error("Bot detection detected - page blocked");
       }
 
-      // Second try: h1 with product title
-      if (!productTitle) {
-        const h1Title = await page
-          .locator('h1[data-testid="product-title"], h1.product-title, h1')
-          .first()
-          .innerText();
+      console.log("🔍 [Scraper] Looking for price elements...");
 
-        if (h1Title) {
-          productTitle = h1Title.trim();
-          console.log(`📝 [Scraper] Found H1 title: ${productTitle}`);
-        }
-      }
+      // Price extraction ─────────────────────────────────────────────
+      const priceSelectors = [
+        '[data-testid="product-list-price-text"]',
+        '[data-testid="product-list-sale-text"]',
+        '[data-testid*="price"]',
+        '[class*="ProductPrice"]',
+        '[class*="product-price"]',
+        '[class*="ProductDetailsPrice"]',
+        ".price",
+        ".sale-price",
+        '[class*="price"]',
+        '[data-test*="price"]',
+      ];
 
-      // Third try: title tag (clean it)
-      if (!productTitle) {
-        const pageTitle = await page.title();
-        if (pageTitle) {
-          // Remove "Aritzia" from title and clean
-          productTitle = pageTitle
-            .replace(/Aritzia/gi, "")
-            .replace(/\|.*$/, "")
-            .replace(/^\s+|\s+$/g, "")
-            .trim();
+      let rawPriceText = "";
+      let priceFound = false;
 
-          if (productTitle) {
-            console.log(`📝 [Scraper] Found page title: ${productTitle}`);
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("⚠️ [Scraper] Could not extract product title:", err);
-    }
-
-    // extract image URL
-    let imageUrl: string | null = null;
-    try {
-      // First try: open graph image
-      let ogImage = await page
-        .locator('meta[property="og:image"]')
-        .getAttribute("content");
-
-      if (ogImage) {
-        // Convert relative URLs to absolute
-        if (ogImage.startsWith("//")) {
-          ogImage = "https:" + ogImage;
-        } else if (ogImage.startsWith("/")) {
-          ogImage = "https://www.aritzia.com" + ogImage;
-        }
-        imageUrl = ogImage;
-        console.log(`🖼️ [Scraper] Found OG image: ${imageUrl}`);
-      }
-
-      // Second try: twitter image
-      if (!imageUrl) {
-        const twitterImage = await page
-          .locator('meta[name="twitter:image"]')
-          .getAttribute("content");
-
-        if (twitterImage) {
-          if (twitterImage.startsWith("//")) {
-            imageUrl = "https:" + twitterImage;
-          } else if (twitterImage.startsWith("/")) {
-            imageUrl = "https://www.aritzia.com" + twitterImage;
-          } else {
-            imageUrl = twitterImage;
-          }
-          console.log(`🖼️ [Scraper] Found Twitter image: ${imageUrl}`);
-        }
-      }
-
-      // Third try: look for product image in the page
-      if (!imageUrl) {
-        const productImage = await page
-          .locator(
-            'img[alt*="product"], img[data-testid="product-image"], .product-image img',
-          )
-          .first()
-          .getAttribute("src");
-
-        if (productImage) {
-          if (productImage.startsWith("//")) {
-            imageUrl = "https:" + productImage;
-          } else if (productImage.startsWith("/")) {
-            imageUrl = "https://www.aritzia.com" + productImage;
-          } else {
-            imageUrl = productImage;
-          }
-          console.log(`🖼️ [Scraper] Found product image: ${imageUrl}`);
-        }
-      }
-
-      // Fourth try: any image with product-related class or alt
-      if (!imageUrl) {
-        const images = await page.locator("img").all();
-        for (const img of images.slice(0, 5)) {
-          // Check first 5 images
-          const src = await img.getAttribute("src");
-          const alt = await img.getAttribute("alt");
-
-          if (
-            src &&
-            (alt?.toLowerCase().includes("product") || src.includes("product"))
-          ) {
-            if (src.startsWith("//")) {
-              imageUrl = "https:" + src;
-            } else if (src.startsWith("/")) {
-              imageUrl = "https://www.aritzia.com" + src;
-            } else {
-              imageUrl = src;
-            }
-            console.log(`🖼️ [Scraper] Found fallback image: ${imageUrl}`);
+      for (const selector of priceSelectors) {
+        try {
+          const element = page.locator(selector).first();
+          if ((await element.count()) > 0) {
+            rawPriceText = await element.innerText();
+            console.log(
+              `✅ [Scraper] Price found via "${selector}": ${rawPriceText}`,
+            );
+            priceFound = true;
             break;
           }
+        } catch {
+          // selector didn't match — try next
         }
       }
-    } catch (err) {
-      console.warn("⚠️ [Scraper] Could not find product image:", err);
-    }
 
-      console.log(`✅ [Scraper] Scrape completed successfully!`);
+      if (!priceFound) {
+        const priceElements = await page
+          .locator("text=/\\$[0-9]+\\.?[0-9]*/")
+          .all();
+        if (priceElements[0]) {
+          rawPriceText = await priceElements[0].innerText();
+          console.log(`✅ [Scraper] Price found via regex: ${rawPriceText}`);
+          priceFound = true;
+        }
+      }
 
-      return {
-        price: cleanPrice,
-        imageUrl: imageUrl,
-        title: productTitle,
+      if (!priceFound) {
+        throw new Error(
+          "DOM Parse Error: Could not find price element. Aritzia may have changed their DOM structure.",
+        );
+      }
+
+      const cleanPrice = parseFloat(rawPriceText.replace(/[^0-9.]/g, ""));
+      if (isNaN(cleanPrice)) {
+        throw new Error(`Failed to parse price string: "${rawPriceText}"`);
+      }
+
+      console.log(`📊 [Scraper] Parsed price: $${cleanPrice}`);
+
+      // Title extraction ─────────────────────────────────────────────
+      let productTitle: string | null = null;
+      try {
+        const ogTitle = await page
+          .locator('meta[property="og:title"]')
+          .getAttribute("content");
+        if (ogTitle) {
+          productTitle = ogTitle;
+        } else {
+          const h1 = await page
+            .locator('h1[data-testid="product-title"], h1.product-title, h1')
+            .first()
+            .innerText()
+            .catch(() => null);
+          productTitle =
+            h1?.trim() ??
+            (await page.title())
+              .replace(/Aritzia/gi, "")
+              .replace(/\|.*$/, "")
+              .trim() ??
+            null;
+        }
+        console.log(`📝 [Scraper] Title: ${productTitle}`);
+      } catch {
+        console.warn("⚠️ [Scraper] Could not extract product title");
+      }
+
+      // Image extraction ─────────────────────────────────────────────
+      let imageUrl: string | null = null;
+      const resolveUrl = (raw: string): string => {
+        if (raw.startsWith("//")) return "https:" + raw;
+        if (raw.startsWith("/")) return "https://www.aritzia.com" + raw;
+        return raw;
       };
-    } catch (error) {
-      console.error(
-        `❌ [Scraper] Failed to scrape Aritzia: ${productUrl}`,
-        error,
-      );
 
-      // Check for specific error types
+      try {
+        const ogImage = await page
+          .locator('meta[property="og:image"]')
+          .getAttribute("content");
+        if (ogImage) {
+          imageUrl = resolveUrl(ogImage);
+        } else {
+          const twitterImage = await page
+            .locator('meta[name="twitter:image"]')
+            .getAttribute("content");
+          if (twitterImage) {
+            imageUrl = resolveUrl(twitterImage);
+          } else {
+            const productImg = await page
+              .locator(
+                'img[alt*="product"], img[data-testid="product-image"], .product-image img',
+              )
+              .first()
+              .getAttribute("src")
+              .catch(() => null);
+            if (productImg) imageUrl = resolveUrl(productImg);
+          }
+        }
+        if (imageUrl) console.log(`🖼️ [Scraper] Image: ${imageUrl}`);
+      } catch {
+        console.warn("⚠️ [Scraper] Could not extract product image");
+      }
+
+      console.log("✅ [Scraper] Scrape completed successfully!");
+      return { price: cleanPrice, imageUrl, title: productTitle };
+    } catch (error) {
+      console.error(`❌ [Scraper] Failed to scrape: ${productUrl}`, error);
+
       if (error instanceof Error) {
         if (error.message.includes("timeout")) {
           throw new Error(
             "Scrape timeout - Aritzia might be slow or blocking us",
           );
-        } else if (error.message.includes("bot detection")) {
+        } else if (error.message.toLowerCase().includes("bot detection")) {
           throw new Error("Bot detection detected - Aritzia has blocked us");
         } else if (error.message.includes("DOM Parse Error")) {
           throw new Error("DOM structure changed - need to update selectors");
         }
       }
 
-      throw new Error("Scrape failed. Target is blocking or structure changed.");
+      throw new Error(
+        "Scrape failed. Target is blocking or structure changed.",
+      );
     } finally {
-      // cleanup - close the context even if the scrape fails
-      if (context) {
-        await context.close();
-      }
-      console.log(`🧹 [Scraper] Context closed`);
+      await closeContext();
+      console.log("🧹 [Scraper] Context closed");
     }
   };
 
   try {
     return await Promise.race([scrapeTask(), timeoutPromise]);
   } finally {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-    }
+    if (timeoutHandle) clearTimeout(timeoutHandle);
   }
 }
