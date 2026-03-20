@@ -70,12 +70,19 @@ export const NotificationsPage: React.FC = () => {
         <div className="space-y-4">
           {notifications.map((notification) => (
             <Card key={notification.id} className="frosted-surface flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-primary-800">{notification.title}</h3>
-                <p className="text-primary-600">{notification.message}</p>
-                <p className="text-sm text-primary-500">
-                  {new Date(notification.createdAt).toLocaleString()}
-                </p>
+              <div className="flex items-center gap-4">
+                <img
+                  src={notification.alert?.product?.imageUrl || 'https://via.placeholder.com/48'}
+                  alt={notification.alert?.product?.title || 'Product'}
+                  className="h-12 w-12 rounded-lg object-cover flex-shrink-0"
+                />
+                <div>
+                  <h3 className="text-lg font-semibold text-primary-800">{notification.title}</h3>
+                  <p className="text-primary-600">{notification.message}</p>
+                  <p className="text-sm text-primary-500">
+                    {new Date(notification.createdAt).toLocaleString()}
+                  </p>
+                </div>
               </div>
               {!notification.isRead && (
                 <Button size="sm" onClick={() => handleMarkAsRead(notification.id)}>

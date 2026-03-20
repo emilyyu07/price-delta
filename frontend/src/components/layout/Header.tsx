@@ -14,7 +14,10 @@ export const Header: React.FC = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-primary-50/60 backdrop-blur-xl border-b border-primary-200/30 shadow-lg">
       <div className="container mx-auto flex justify-between items-center py-8 px-4">
         <h1 className="text-2xl font-bold font-chic">
-          <Link to="/" className="bg-gradient-to-r from-primary-700 to-primary-900 bg-clip-text text-transparent hover:from-primary-600 hover:to-primary-800 transition-all duration-300">PriceDelta</Link>
+          <Link to="/" className="flex items-center gap-2 bg-gradient-to-r from-primary-700 to-primary-900 bg-clip-text text-transparent hover:from-primary-600 hover:to-primary-800 transition-all duration-300">
+            <img src="/favicon.png" alt="PriceDelta logo" className="h-7 w-7 object-contain" />
+            PriceDelta
+          </Link>
         </h1>
         
         {/* Desktop Navigation */}

@@ -46,6 +46,7 @@ export interface PriceAlert {
   targetPrice?: string;
   percentageThreshold?: string;
   isActive: boolean;
+  createdAt: string;
   lastNotifiedPrice?: string;
   lastNotifiedAt?: string;
   product: Product;
@@ -58,6 +59,9 @@ export interface Notification {
   message: string;
   isRead: boolean;
   createdAt: string;
+  alert?: {
+    product?: Product;
+  };
 }
 
 export interface User {
