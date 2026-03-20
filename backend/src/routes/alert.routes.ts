@@ -94,4 +94,72 @@ router.delete("/:id", protect, async (req: AuthRequest, res, next) => {
   }
 });
 
+// TEST endpoint — simulate a price drop to verify the full notification pipeline
+// Only available in development mode
+router.post("/:id/test", protect, async (req: AuthRequest, res, next) => {
+  try {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(403).json({ message: "Test endpoint disabled in production" });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authorized, user not found" });
+    }
+
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      return res.status(400).json({ message: "Invalid alert ID" });
+    }
+
+    const alert = await prisma.priceAlert.findUnique({
+      where: { id },
+      include: { product: true, user: true },
+    });
+
+    if (!alert) {
+      return res.status(404).json({ message: "Alert not found" });
+    }
+
+    if (alert.userId !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to test this alert" });
+    }
+
+    // Use a fake price guaranteed to trigger: targetPrice - 1, or $1 if no target
+    const fakePrice = alert.targetPrice
+      ? Math.max(Number(alert.targetPrice) - 1, 0.01)
+      : 1.0;
+
+    console.log(
+      `[Test Alert] Simulating price drop to $${fakePrice} for product "${alert.product.title}" (alert ${id})`,
+    );
+
+    // Import and call the alert checker directly
+    const { checkAlertsForProduct } = await import("../workers/alertChecker.js");
+
+    // Temporarily clear lastNotifiedPrice so the anti-spam check doesn't block us
+    await prisma.priceAlert.update({
+      where: { id },
+      data: { lastNotifiedPrice: null, lastNotifiedAt: null },
+    });
+
+    await checkAlertsForProduct(alert.productId, fakePrice);
+
+    res.json({
+      success: true,
+      message: `Test alert triggered! Simulated price: $${fakePrice}`,
+      details: {
+        product: alert.product.title,
+        targetPrice: alert.targetPrice ? Number(alert.targetPrice) : null,
+        simulatedPrice: fakePrice,
+        emailSentTo: alert.user.email,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
