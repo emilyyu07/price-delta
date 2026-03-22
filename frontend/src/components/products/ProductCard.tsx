@@ -1,6 +1,5 @@
 import React from 'react';
 import { Card } from '../common/Card';
-import { Button } from '../common/Button';
 import type { Product, ProductListing } from '../../types/index.js';
 
 interface ProductCardProps {
