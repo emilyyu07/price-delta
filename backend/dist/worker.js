@@ -4,17 +4,6 @@ import "dotenv/config";
 // src/config/prisma.ts
 import { PrismaClient } from "@prisma/client";
 import "dotenv/config";
-var prisma = new PrismaClient({
-  log: ["error", "warn"]
-});
-var prisma_default = prisma;
-
-// src/config/scheduler.ts
-import cron from "node-cron";
-
-// src/queue/priceQueue.ts
-import "dotenv/config";
-import { Queue, Worker } from "bullmq";
 
 // src/config/env.ts
 import "dotenv/config";
@@ -22,6 +11,7 @@ import { z } from "zod";
 var envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+  REDIS_URL: z.string().optional(),
   REDIS_HOST: z.string().default("127.0.0.1"),
   REDIS_PORT: z.coerce.number().default(6379),
   PORT: z.coerce.number().default(3001),
@@ -34,33 +24,67 @@ var envSchema = z.object({
 });
 var env = envSchema.parse(process.env);
 
+// src/config/prisma.ts
+var getDatabaseUrl = () => {
+  const baseUrl = env.DATABASE_URL;
+  if (env.NODE_ENV === "production") {
+    const separator = baseUrl.includes("?") ? "&" : "?";
+    return `${baseUrl}${separator}pgbouncer=true&connection_limit=1`;
+  }
+  return baseUrl;
+};
+var prisma = new PrismaClient({
+  log: ["error", "warn"],
+  datasources: {
+    db: {
+      url: getDatabaseUrl()
+    }
+  }
+});
+var prisma_default = prisma;
+
+// src/config/scheduler.ts
+import cron from "node-cron";
+
+// src/queue/priceQueue.ts
+import "dotenv/config";
+import { Queue, Worker } from "bullmq";
+
 // src/workers/scrapers/aritziaScraper.ts
-import { chromium } from "playwright";
+import { chromium as stealthChromium } from "playwright-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+stealthChromium.use(StealthPlugin());
 var globalBrowser = null;
-async function scrapeAritziaPrice(productUrl) {
-  console.log(`\u{1F50D} [Scraper] Starting scrape for: ${productUrl}`);
-  let context = null;
-  const timeout = 6e4;
-  let timeoutHandle;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutHandle = setTimeout(() => {
-      if (context) {
-        void context.close().catch((closeError) => {
-          console.warn("\u26A0\uFE0F [Scraper] Failed to close timed-out context:", closeError);
-        });
-        context = null;
-      }
-      reject(new Error("Scrape timeout after 60 seconds"));
-    }, timeout);
-  });
+var randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+var humanDelay = (minMs, maxMs) => new Promise((res) => setTimeout(res, randInt(minMs, maxMs)));
+async function humanScroll(page) {
+  const scrollSteps = randInt(3, 6);
+  for (let i = 0; i < scrollSteps; i++) {
+    await page.mouse.wheel(0, randInt(200, 500));
+    await humanDelay(300, 700);
+  }
+  await page.mouse.wheel(0, -randInt(100, 300));
+  await humanDelay(200, 500);
+}
+async function humanMouseMove(page) {
+  const moves = randInt(2, 4);
+  for (let i = 0; i < moves; i++) {
+    await page.mouse.move(randInt(300, 1400), randInt(200, 800), {
+      steps: randInt(5, 15)
+      // smooth arc, not a teleport
+    });
+    await humanDelay(100, 300);
+  }
+}
+async function getOrLaunchBrowser() {
   if (globalBrowser && !globalBrowser.isConnected()) {
-    console.warn("[Scraper] Browser disconnected. Relaunching browser instance.");
+    console.warn("[Scraper] Browser disconnected \u2014 relaunching.");
     await globalBrowser.close().catch(() => void 0);
     globalBrowser = null;
   }
   if (!globalBrowser) {
-    console.log(`\u{1F680} [Scraper] Launching new browser instance...`);
-    globalBrowser = await chromium.launch({
+    console.log("\u{1F680} [Scraper] Launching new browser instance...");
+    globalBrowser = await stealthChromium.launch({
       headless: true,
       args: [
         "--no-sandbox",
@@ -74,77 +98,124 @@ async function scrapeAritziaPrice(productUrl) {
         "--disable-backgrounding-occluded-windows",
         "--memory-pressure-off",
         "--max_old_space_size=4096",
-        // Anti-detection flags
+        // Suppress automation flags
         "--disable-blink-features=AutomationControlled",
-        "--disable-web-security",
-        "--disable-features=VizDisplayCompositor"
+        // NOTE: --disable-web-security removed — it is itself a bot signal
+        // NOTE: --disable-features=VizDisplayCompositor removed — not needed
+        "--window-size=1920,1080"
       ]
     });
   }
-  const browser = globalBrowser;
-  if (!browser) {
-    throw new Error("Browser initialization failed");
-  }
+  return globalBrowser;
+}
+var USER_AGENTS = [
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_3_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+];
+async function createContext(browser) {
+  const userAgent = USER_AGENTS[randInt(0, USER_AGENTS.length - 1)];
+  return browser.newContext({
+    userAgent,
+    viewport: { width: 1920, height: 1080 },
+    deviceScaleFactor: 1,
+    hasTouch: false,
+    locale: "en-US",
+    timezoneId: "America/New_York",
+    ignoreHTTPSErrors: true,
+    bypassCSP: true,
+    javaScriptEnabled: true,
+    // Realistic HTTP headers — missing Accept-Language is a common bot signal
+    extraHTTPHeaders: {
+      "Accept-Language": "en-US,en;q=0.9",
+      "Accept-Encoding": "gzip, deflate, br",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+      "sec-ch-ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"macOS"',
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+      "Upgrade-Insecure-Requests": "1"
+    }
+  });
+}
+async function scrapeAritziaPrice(productUrl) {
+  console.log(`\u{1F50D} [Scraper] Starting scrape for: ${productUrl}`);
+  let context = null;
+  let contextClosed = false;
+  let cancelled = false;
+  const closeContext = async () => {
+    if (!contextClosed && context) {
+      contextClosed = true;
+      await context.close().catch(
+        (err) => console.warn("\u26A0\uFE0F [Scraper] Error closing context:", err)
+      );
+    }
+  };
+  const timeout = 9e4;
+  let timeoutHandle;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutHandle = setTimeout(async () => {
+      cancelled = true;
+      await closeContext();
+      reject(new Error("Scrape timeout after 90 seconds"));
+    }, timeout);
+  });
+  const browser = await getOrLaunchBrowser();
   const scrapeTask = async () => {
     try {
-      const userAgents = [
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-      ];
-      const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-      context = await browser.newContext({
-        userAgent: randomUserAgent,
-        viewport: { width: 1920, height: 1080 },
-        deviceScaleFactor: 1,
-        hasTouch: false,
-        // Performance optimizations
-        ignoreHTTPSErrors: true,
-        bypassCSP: true,
-        // Reduce resource loading for faster scraping
-        javaScriptEnabled: true,
-        offline: false,
-        // Anti-detection measures
-        locale: "en-US",
-        timezoneId: "America/New_York"
-      });
+      context = await createContext(browser);
       const page = await context.newPage();
-      await page.addInitScript(() => {
-        Object.defineProperty(navigator, "webdriver", {
-          get: () => void 0
-        });
-        Object.defineProperty(navigator, "plugins", {
-          get: () => [1, 2, 3, 4, 5]
-        });
-        Object.defineProperty(navigator, "languages", {
-          get: () => ["en-US", "en"]
-        });
-      });
+      await page.route("**/*.{woff,woff2,ttf}", (route) => route.abort());
       await page.route(
-        "**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,css}",
-        (route) => {
-          route.abort();
-        }
+        /google-analytics|googletagmanager|doubleclick|facebook\.net|hotjar|segment\.io/,
+        (route) => route.abort()
       );
-      await page.route("**/*.{analytics,pixel,tracking}", (route) => {
-        route.abort();
-      });
-      console.log(`\u{1F310} [Scraper] Navigating to: ${productUrl}`);
-      await page.goto(productUrl, {
+      if (cancelled) throw new Error("Scrape cancelled due to timeout");
+      console.log("\u{1F3E0} [Scraper] Visiting homepage to establish session...");
+      await page.goto("https://www.aritzia.com/en/aritzia", {
         waitUntil: "domcontentloaded",
         timeout: 3e4
       });
-      const randomDelay = Math.floor(Math.random() * 2500) + 1500;
-      console.log(`\u23F3 [Scraper] Waiting ${randomDelay}ms to appear human...`);
-      await page.waitForTimeout(randomDelay);
+      await humanDelay(1500, 3e3);
+      await humanMouseMove(page);
+      if (cancelled) throw new Error("Scrape cancelled due to timeout");
+      console.log(`\u{1F310} [Scraper] Navigating to product: ${productUrl}`);
+      await page.goto(productUrl, {
+        waitUntil: "networkidle",
+        timeout: 45e3,
+        referer: "https://www.aritzia.com/en/aritzia"
+      });
+      if (cancelled) throw new Error("Scrape cancelled due to timeout");
+      const pauseMs = randInt(2e3, 4e3);
+      console.log(
+        `\u23F3 [Scraper] Pausing ${pauseMs}ms and simulating human behaviour...`
+      );
+      await humanDelay(pauseMs / 2, pauseMs / 2);
+      await humanMouseMove(page);
+      await humanScroll(page);
+      await humanDelay(500, 1200);
+      if (cancelled) throw new Error("Scrape cancelled due to timeout");
       const pageTitle = await page.title();
-      if (pageTitle.toLowerCase().includes("robot") || pageTitle.toLowerCase().includes("blocked") || pageTitle.toLowerCase().includes("access denied")) {
+      if (pageTitle.toLowerCase().includes("robot") || pageTitle.toLowerCase().includes("blocked") || pageTitle.toLowerCase().includes("access denied") || pageTitle.toLowerCase().includes("403") || pageTitle.toLowerCase().includes("just a moment") || pageTitle.toLowerCase().includes("verify you are human") || pageTitle.toLowerCase().includes("attention required") || pageTitle.toLowerCase().includes("checking your browser")) {
         throw new Error("Bot detection detected - page blocked");
       }
-      console.log(`\u{1F50D} [Scraper] Looking for price elements...`);
+      if (pageTitle.toLowerCase().includes("404") || pageTitle.toLowerCase().includes("page not found")) {
+        throw new Error(
+          "Product page returned 404 \u2014 product may be discontinued"
+        );
+      }
+      console.log("\u{1F50D} [Scraper] Looking for price elements...");
       const priceSelectors = [
         '[data-testid="product-list-price-text"]',
         '[data-testid="product-list-sale-text"]',
+        '[data-testid*="price"]',
+        '[class*="ProductPrice"]',
+        '[class*="product-price"]',
+        '[class*="ProductDetailsPrice"]',
         ".price",
         ".sale-price",
         '[class*="price"]',
@@ -158,21 +229,19 @@ async function scrapeAritziaPrice(productUrl) {
           if (await element.count() > 0) {
             rawPriceText = await element.innerText();
             console.log(
-              `\u2705 [Scraper] Found price using selector "${selector}": ${rawPriceText}`
+              `\u2705 [Scraper] Price found via "${selector}": ${rawPriceText}`
             );
             priceFound = true;
             break;
           }
-        } catch (error) {
-          console.log(`\u274C [Scraper] Selector "${selector}" failed:`, error);
+        } catch {
         }
       }
       if (!priceFound) {
         const priceElements = await page.locator("text=/\\$[0-9]+\\.?[0-9]*/").all();
-        const firstPriceElement = priceElements[0];
-        if (firstPriceElement) {
-          rawPriceText = await firstPriceElement.innerText();
-          console.log(`\u2705 [Scraper] Found price using regex: ${rawPriceText}`);
+        if (priceElements[0]) {
+          rawPriceText = await priceElements[0].innerText();
+          console.log(`\u2705 [Scraper] Price found via regex: ${rawPriceText}`);
           priceFound = true;
         }
       }
@@ -181,141 +250,92 @@ async function scrapeAritziaPrice(productUrl) {
           "DOM Parse Error: Could not find price element. Aritzia may have changed their DOM structure."
         );
       }
-      console.log(
-        `\u{1F4B0} [Scraper] Successfully extracted raw price string: ${rawPriceText}`
-      );
       const cleanPrice = parseFloat(rawPriceText.replace(/[^0-9.]/g, ""));
       if (isNaN(cleanPrice)) {
-        throw new Error(`Failed to parse price string: ${rawPriceText}`);
+        throw new Error(`Failed to parse price string: "${rawPriceText}"`);
       }
       console.log(`\u{1F4CA} [Scraper] Parsed price: $${cleanPrice}`);
       let productTitle = null;
       try {
-        const ogTitleLocator = page.locator('meta[property="og:title"]').first();
-        const ogTitle = await ogTitleLocator.count() > 0 ? await ogTitleLocator.getAttribute("content", { timeout: 2e3 }) : null;
-        if (ogTitle) {
-          productTitle = ogTitle;
-          console.log(`\u{1F4DD} [Scraper] Found OG title: ${productTitle}`);
+        const ogTitle = await page.locator('meta[property="og:title"]').getAttribute("content", { timeout: 3e3 }).catch(() => null);
+        if (ogTitle && ogTitle.trim().length > 3) {
+          productTitle = ogTitle.trim();
+        } else {
+          const h1Locator = page.locator('h1[data-testid="product-title"], h1.product-title, h1').first();
+          const h1 = await h1Locator.waitFor({ state: "visible", timeout: 5e3 }).then(() => h1Locator.innerText()).catch(() => null);
+          productTitle = h1?.trim() || (await page.title()).replace(/Aritzia/gi, "").replace(/\|.*$/, "").trim() || null;
         }
-        if (!productTitle) {
-          const h1Title = await page.locator('h1[data-testid="product-title"], h1.product-title, h1').first().innerText();
-          if (h1Title) {
-            productTitle = h1Title.trim();
-            console.log(`\u{1F4DD} [Scraper] Found H1 title: ${productTitle}`);
-          }
-        }
-        if (!productTitle) {
-          const pageTitle2 = await page.title();
-          if (pageTitle2) {
-            productTitle = pageTitle2.replace(/Aritzia/gi, "").replace(/\|.*$/, "").replace(/^\s+|\s+$/g, "").trim();
-            if (productTitle) {
-              console.log(`\u{1F4DD} [Scraper] Found page title: ${productTitle}`);
-            }
-          }
-        }
+        console.log(`\u{1F4DD} [Scraper] Title: ${productTitle}`);
       } catch (err) {
         console.warn("\u26A0\uFE0F [Scraper] Could not extract product title:", err);
       }
       let imageUrl = null;
+      const resolveUrl = (raw) => {
+        if (raw.startsWith("//")) return "https:" + raw;
+        if (raw.startsWith("/")) return "https://www.aritzia.com" + raw;
+        return raw;
+      };
       try {
-        const ogImageLocator = page.locator('meta[property="og:image"]').first();
-        let ogImage = await ogImageLocator.count() > 0 ? await ogImageLocator.getAttribute("content", { timeout: 2e3 }) : null;
+        const ogImage = await page.locator('meta[property="og:image"]').getAttribute("content", { timeout: 3e3 }).catch(() => null);
         if (ogImage) {
-          if (ogImage.startsWith("//")) {
-            ogImage = "https:" + ogImage;
-          } else if (ogImage.startsWith("/")) {
-            ogImage = "https://www.aritzia.com" + ogImage;
-          }
-          imageUrl = ogImage;
-          console.log(`\u{1F5BC}\uFE0F [Scraper] Found OG image: ${imageUrl}`);
-        }
-        if (!imageUrl) {
-          const twitterImageLocator = page.locator('meta[name="twitter:image"]').first();
-          const twitterImage = await twitterImageLocator.count() > 0 ? await twitterImageLocator.getAttribute("content", { timeout: 2e3 }) : null;
+          imageUrl = resolveUrl(ogImage);
+        } else {
+          const twitterImage = await page.locator('meta[name="twitter:image"]').getAttribute("content", { timeout: 3e3 }).catch(() => null);
           if (twitterImage) {
-            if (twitterImage.startsWith("//")) {
-              imageUrl = "https:" + twitterImage;
-            } else if (twitterImage.startsWith("/")) {
-              imageUrl = "https://www.aritzia.com" + twitterImage;
-            } else {
-              imageUrl = twitterImage;
-            }
-            console.log(`\u{1F5BC}\uFE0F [Scraper] Found Twitter image: ${imageUrl}`);
-          }
-        }
-        if (!imageUrl) {
-          const productImageLocator = page.locator(
-            'img[alt*="product"], img[data-testid="product-image"], .product-image img'
-          ).first();
-          const productImage = await productImageLocator.count() > 0 ? await productImageLocator.getAttribute("src", { timeout: 2e3 }) : null;
-          if (productImage) {
-            if (productImage.startsWith("//")) {
-              imageUrl = "https:" + productImage;
-            } else if (productImage.startsWith("/")) {
-              imageUrl = "https://www.aritzia.com" + productImage;
-            } else {
-              imageUrl = productImage;
-            }
-            console.log(`\u{1F5BC}\uFE0F [Scraper] Found product image: ${imageUrl}`);
-          }
-        }
-        if (!imageUrl) {
-          const images = await page.locator("img").all();
-          for (const img of images.slice(0, 5)) {
-            const src = await img.getAttribute("src");
-            const alt = await img.getAttribute("alt");
-            if (src && (alt?.toLowerCase().includes("product") || src.includes("product"))) {
-              if (src.startsWith("//")) {
-                imageUrl = "https:" + src;
-              } else if (src.startsWith("/")) {
-                imageUrl = "https://www.aritzia.com" + src;
-              } else {
-                imageUrl = src;
+            imageUrl = resolveUrl(twitterImage);
+          } else {
+            const imgLocator = page.locator('#product-images img[loading="lazy"]').first();
+            await imgLocator.waitFor({ state: "visible", timeout: 5e3 }).catch(() => null);
+            const rawSrc = await imgLocator.evaluate((el) => {
+              const srcset = el.getAttribute("srcset");
+              if (srcset) {
+                const entries = srcset.split(/\s+\d+w,?\s*/).map((s) => s.trim()).filter((s) => s.startsWith("http"));
+                const best = entries[entries.length - 1];
+                if (best) return best;
               }
-              console.log(`\u{1F5BC}\uFE0F [Scraper] Found fallback image: ${imageUrl}`);
-              break;
+              const src = el.getAttribute("src");
+              return src && !src.startsWith("data:") ? src : null;
+            }).catch(() => null);
+            if (rawSrc && !rawSrc.startsWith("data:")) {
+              imageUrl = resolveUrl(rawSrc);
             }
           }
+        }
+        if (imageUrl) {
+          console.log(`\u{1F5BC}\uFE0F [Scraper] Image: ${imageUrl}`);
+        } else {
+          console.warn("\u26A0\uFE0F [Scraper] No image found via any selector");
         }
       } catch (err) {
-        console.warn("\u26A0\uFE0F [Scraper] Could not find product image:", err);
+        console.warn("\u26A0\uFE0F [Scraper] Could not extract product image:", err);
       }
-      console.log(`\u2705 [Scraper] Scrape completed successfully!`);
-      return {
-        price: cleanPrice,
-        imageUrl,
-        title: productTitle
-      };
+      console.log("\u2705 [Scraper] Scrape completed successfully!");
+      return { price: cleanPrice, imageUrl, title: productTitle };
     } catch (error) {
-      console.error(
-        `\u274C [Scraper] Failed to scrape Aritzia: ${productUrl}`,
-        error
-      );
+      console.error(`\u274C [Scraper] Failed to scrape: ${productUrl}`, error);
       if (error instanceof Error) {
         if (error.message.includes("timeout")) {
           throw new Error(
             "Scrape timeout - Aritzia might be slow or blocking us"
           );
-        } else if (error.message.includes("bot detection")) {
+        } else if (error.message.toLowerCase().includes("bot detection")) {
           throw new Error("Bot detection detected - Aritzia has blocked us");
         } else if (error.message.includes("DOM Parse Error")) {
           throw new Error("DOM structure changed - need to update selectors");
         }
       }
-      throw new Error("Scrape failed. Target is blocking or structure changed.");
+      throw new Error(
+        "Scrape failed. Target is blocking or structure changed."
+      );
     } finally {
-      if (context) {
-        await context.close();
-      }
-      console.log(`\u{1F9F9} [Scraper] Context closed`);
+      await closeContext();
+      console.log("\u{1F9F9} [Scraper] Context closed");
     }
   };
   try {
     return await Promise.race([scrapeTask(), timeoutPromise]);
   } finally {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-    }
+    if (timeoutHandle) clearTimeout(timeoutHandle);
   }
 }
 
@@ -475,7 +495,17 @@ async function saveScrapedPrice(listingId, newPrice, imageUrl, title) {
 }
 
 // src/queue/priceQueue.ts
-var redisConnectionOptions = {
+var redisConnectionOptions = env.REDIS_URL ? {
+  // Upstash TLS connection
+  host: new URL(env.REDIS_URL).hostname,
+  port: parseInt(new URL(env.REDIS_URL).port) || 6379,
+  password: new URL(env.REDIS_URL).password || void 0,
+  tls: {
+    rejectUnauthorized: false
+  },
+  maxRetriesPerRequest: null
+} : {
+  // Local Docker connection
   host: env.REDIS_HOST,
   port: env.REDIS_PORT,
   maxRetriesPerRequest: null

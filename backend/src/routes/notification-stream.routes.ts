@@ -2,6 +2,7 @@ import { Router } from "express";
 import prisma from "../config/prisma.js";
 import { protect } from "../middleware/auth.middleware.js";
 import type { AuthRequest } from "../middleware/auth.middleware.js";
+import { env } from "../config/env.js";
 
 const router = Router();
 
@@ -11,14 +12,13 @@ router.get("/", protect, (req: AuthRequest, res) => {
     return res.status(401).json({ message: "Not authorized, user not found" });
   }
   const userId = req.user.id;
-  const frontendOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
   
   // Set headers for SSE
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': frontendOrigin,
+    'Access-Control-Allow-Origin': env.FRONTEND_URL,
     'Access-Control-Allow-Headers': 'Cache-Control'
   });
 

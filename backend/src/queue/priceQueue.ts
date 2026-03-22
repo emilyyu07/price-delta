@@ -5,11 +5,24 @@ import { scrapeAritziaPrice } from "../workers/scrapers/aritziaScraper.js";
 import { saveScrapedPrice } from "../services/price.service.js";
 
 // establish connection to Redis
-const redisConnectionOptions = {
-  host: env.REDIS_HOST,
-  port: env.REDIS_PORT,
-  maxRetriesPerRequest: null,
-};
+// Prefer REDIS_URL (for Upstash/production) over host/port (for local Docker)
+const redisConnectionOptions = env.REDIS_URL
+  ? {
+      // Upstash TLS connection
+      host: new URL(env.REDIS_URL).hostname,
+      port: parseInt(new URL(env.REDIS_URL).port) || 6379,
+      password: new URL(env.REDIS_URL).password || undefined,
+      tls: {
+        rejectUnauthorized: false,
+      },
+      maxRetriesPerRequest: null,
+    }
+  : {
+      // Local Docker connection
+      host: env.REDIS_HOST,
+      port: env.REDIS_PORT,
+      maxRetriesPerRequest: null,
+    };
 
 // create queue
 export const scrapeQueue = new Queue("price-scrape-queue", {

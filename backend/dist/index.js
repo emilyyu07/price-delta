@@ -1,32 +1,194 @@
-// src/index.ts
-import express from "express";
-import cors from "cors";
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 
 // src/config/env.ts
 import "dotenv/config";
 import { z } from "zod";
-var envSchema = z.object({
-  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
-  JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
-  REDIS_HOST: z.string().default("127.0.0.1"),
-  REDIS_PORT: z.coerce.number().default(6379),
-  PORT: z.coerce.number().default(3001),
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  FRONTEND_URL: z.string().default("http://localhost:5173"),
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().optional(),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional()
+var envSchema, env;
+var init_env = __esm({
+  "src/config/env.ts"() {
+    "use strict";
+    envSchema = z.object({
+      DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+      JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+      REDIS_URL: z.string().optional(),
+      REDIS_HOST: z.string().default("127.0.0.1"),
+      REDIS_PORT: z.coerce.number().default(6379),
+      PORT: z.coerce.number().default(3001),
+      NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+      FRONTEND_URL: z.string().default("http://localhost:5173"),
+      SMTP_HOST: z.string().optional(),
+      SMTP_PORT: z.coerce.number().optional(),
+      SMTP_USER: z.string().optional(),
+      SMTP_PASS: z.string().optional()
+    });
+    env = envSchema.parse(process.env);
+  }
 });
-var env = envSchema.parse(process.env);
 
 // src/config/prisma.ts
 import { PrismaClient } from "@prisma/client";
 import "dotenv/config";
-var prisma = new PrismaClient({
-  log: ["error", "warn"]
+var getDatabaseUrl, prisma, prisma_default;
+var init_prisma = __esm({
+  "src/config/prisma.ts"() {
+    "use strict";
+    init_env();
+    getDatabaseUrl = () => {
+      const baseUrl = env.DATABASE_URL;
+      if (env.NODE_ENV === "production") {
+        const separator = baseUrl.includes("?") ? "&" : "?";
+        return `${baseUrl}${separator}pgbouncer=true&connection_limit=1`;
+      }
+      return baseUrl;
+    };
+    prisma = new PrismaClient({
+      log: ["error", "warn"],
+      datasources: {
+        db: {
+          url: getDatabaseUrl()
+        }
+      }
+    });
+    prisma_default = prisma;
+  }
 });
-var prisma_default = prisma;
+
+// src/config/mail.ts
+import nodemailer from "nodemailer";
+var transporter, sendPriceDropEmail;
+var init_mail = __esm({
+  "src/config/mail.ts"() {
+    "use strict";
+    init_env();
+    transporter = nodemailer.createTransport({
+      host: env.SMTP_HOST,
+      // smtp.gmail.com
+      port: env.SMTP_PORT || 587,
+      secure: false,
+      auth: {
+        user: env.SMTP_USER,
+        // pricedeltanotif@gmail.com
+        pass: env.SMTP_PASS
+        // app pw
+      }
+    });
+    sendPriceDropEmail = async (toEmail, productName, newPrice, productUrl) => {
+      try {
+        const info = await transporter.sendMail({
+          from: `"PriceDelta Alerts" <${env.SMTP_USER}>`,
+          to: toEmail,
+          subject: `\u{1F6A8} Price Drop: ${productName} is now $${newPrice}!`,
+          html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2>Great news from PriceDelta!</h2>
+          <p>The item you are tracking just dropped in price.</p>
+          <p><strong>${productName}</strong> is now available for <strong>$${newPrice}</strong>.</p>
+          <a href="${productUrl}" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 15px;">
+            Buy it now
+          </a>
+          <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">
+            You are receiving this because you set a price alert on PriceDelta.
+          </p>
+        </div>
+      `
+        });
+        console.log(
+          `[Mailer] Email sent successfully to ${toEmail}. Message ID: ${info.messageId}`
+        );
+      } catch (error) {
+        console.error(`[Mailer] Failed to send email to ${toEmail}:`, error);
+      }
+    };
+  }
+});
+
+// src/workers/alertChecker.ts
+var alertChecker_exports = {};
+__export(alertChecker_exports, {
+  checkAlertsForProduct: () => checkAlertsForProduct
+});
+async function checkAlertsForProduct(productId, newPrice) {
+  try {
+    const alerts = await prisma_default.priceAlert.findMany({
+      where: {
+        productId,
+        isActive: true
+      },
+      include: {
+        user: true,
+        product: true
+      }
+    });
+    for (const alert of alerts) {
+      let triggered = false;
+      if (alert.targetPrice && newPrice <= Number(alert.targetPrice)) {
+        triggered = true;
+      }
+      if (triggered) {
+        if (alert.lastNotifiedPrice && Number(alert.lastNotifiedPrice) === newPrice) {
+          console.log(
+            `[Alert Engine] User ${alert.user.email} already notified about $${newPrice}. Skipping.`
+          );
+          continue;
+        }
+        console.log(
+          `[Alert Engine] \u{1F6A8} ALERT TRIGGERED for User ${alert.user.email}!`
+        );
+        const productUrl = alert.product.url || "https://www.aritzia.com";
+        await prisma_default.$transaction([
+          prisma_default.notification.create({
+            data: {
+              userId: alert.userId,
+              alertId: alert.id,
+              type: "PRICE_DROP",
+              title: "Price Drop Alert! \u{1F389}",
+              message: `Great news! ${alert.product.title} has dropped to $${newPrice}!`,
+              isRead: false
+            }
+          }),
+          prisma_default.priceAlert.update({
+            where: { id: alert.id },
+            data: {
+              lastNotifiedPrice: newPrice,
+              lastNotifiedAt: /* @__PURE__ */ new Date()
+            }
+          })
+        ]);
+        if (alert.user.email) {
+          sendPriceDropEmail(
+            alert.user.email,
+            alert.product.title,
+            newPrice,
+            productUrl
+          ).catch((err) => console.error("Email error:", err));
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[Alert Engine] Failed to check alerts:", error);
+  }
+}
+var init_alertChecker = __esm({
+  "src/workers/alertChecker.ts"() {
+    "use strict";
+    init_prisma();
+    init_mail();
+  }
+});
+
+// src/index.ts
+init_env();
+init_prisma();
+import express from "express";
+import cors from "cors";
 
 // src/routes/health.routes.ts
 import { Router } from "express";
@@ -50,29 +212,31 @@ var health_routes_default = router;
 import { Router as Router2 } from "express";
 
 // src/queue/priceQueue.ts
+init_env();
 import "dotenv/config";
 import { Queue, Worker } from "bullmq";
 
 // src/workers/scrapers/aritziaScraper.ts
-import { chromium } from "playwright";
+import { chromium as stealthChromium } from "playwright-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+stealthChromium.use(StealthPlugin());
 
-// src/config/mail.ts
-import nodemailer from "nodemailer";
-var transporter = nodemailer.createTransport({
-  host: env.SMTP_HOST,
-  // smtp.gmail.com
-  port: env.SMTP_PORT || 587,
-  secure: false,
-  auth: {
-    user: env.SMTP_USER,
-    // pricedeltanotif@gmail.com
-    pass: env.SMTP_PASS
-    // app pw
-  }
-});
+// src/services/price.service.ts
+init_prisma();
+init_alertChecker();
 
 // src/queue/priceQueue.ts
-var redisConnectionOptions = {
+var redisConnectionOptions = env.REDIS_URL ? {
+  // Upstash TLS connection
+  host: new URL(env.REDIS_URL).hostname,
+  port: parseInt(new URL(env.REDIS_URL).port) || 6379,
+  password: new URL(env.REDIS_URL).password || void 0,
+  tls: {
+    rejectUnauthorized: false
+  },
+  maxRetriesPerRequest: null
+} : {
+  // Local Docker connection
   host: env.REDIS_HOST,
   port: env.REDIS_PORT,
   maxRetriesPerRequest: null
@@ -136,6 +300,7 @@ function extractStoreName(url) {
 }
 
 // src/controllers/product.controller.ts
+init_prisma();
 var trackProduct = async (req, res) => {
   try {
     const { url } = req.body;
@@ -274,8 +439,35 @@ var clearStuckJobs = async (_req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+var deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id || typeof id !== "string") {
+      return res.status(400).json({ error: "Invalid product ID" });
+    }
+    const product = await prisma_default.product.findUnique({
+      where: { id },
+      include: {
+        listings: true,
+        alerts: true
+      }
+    });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    await prisma_default.product.delete({
+      where: { id }
+    });
+    res.status(204).send();
+  } catch (error) {
+    console.error("Delete Product Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
 
 // src/middleware/auth.middleware.ts
+init_prisma();
+init_env();
 import jwt from "jsonwebtoken";
 import "dotenv/config";
 var protect = async (req, res, next) => {
@@ -317,6 +509,7 @@ var validate = (schema) => (req, res, next) => {
 };
 
 // src/routes/product.routes.ts
+init_prisma();
 import { z as z2 } from "zod";
 var router2 = Router2();
 var trackSchema = z2.object({
@@ -436,17 +629,22 @@ router2.get("/:id", async (req, res, next) => {
     next(error);
   }
 });
+router2.delete("/:id", protect, deleteProduct);
 router2.get("/health", protect, getQueueHealth);
 router2.post("/clear-stuck-jobs", protect, clearStuckJobs);
 var product_routes_default = router2;
 
 // src/routes/alert.routes.ts
+init_prisma();
 import { Router as Router3 } from "express";
 import { Decimal } from "@prisma/client/runtime/library";
 import { z as z3 } from "zod";
 var router3 = Router3();
 var createAlertSchema = z3.object({
   productId: z3.string().uuid("productId must be a valid UUID."),
+  targetPrice: z3.number().positive("Target price must be positive.")
+});
+var updateAlertSchema = z3.object({
   targetPrice: z3.number().positive("Target price must be positive.")
 });
 router3.get("/", protect, async (req, res, next) => {
@@ -487,6 +685,39 @@ router3.post(
     }
   }
 );
+router3.patch(
+  "/:id",
+  protect,
+  validate(updateAlertSchema),
+  async (req, res, next) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Not authorized, user not found" });
+      }
+      const { id } = req.params;
+      const { targetPrice } = req.body;
+      if (!id || Array.isArray(id)) {
+        return res.status(400).json({ message: "Invalid alert ID" });
+      }
+      const existingAlert = await prisma_default.priceAlert.findUnique({
+        where: { id }
+      });
+      if (!existingAlert) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      if (existingAlert.userId !== req.user.id) {
+        return res.status(403).json({ message: "You are not authorized to update this alert" });
+      }
+      const updatedAlert = await prisma_default.priceAlert.update({
+        where: { id },
+        data: { targetPrice: new Decimal(targetPrice) }
+      });
+      res.json({ success: true, message: "Alert updated!", alert: updatedAlert });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 router3.delete("/:id", protect, async (req, res, next) => {
   try {
     if (!req.user) {
@@ -513,6 +744,52 @@ router3.delete("/:id", protect, async (req, res, next) => {
     next(error);
   }
 });
+router3.post("/:id/test", protect, async (req, res, next) => {
+  try {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(403).json({ message: "Test endpoint disabled in production" });
+    }
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authorized, user not found" });
+    }
+    const { id } = req.params;
+    if (!id || Array.isArray(id)) {
+      return res.status(400).json({ message: "Invalid alert ID" });
+    }
+    const alert = await prisma_default.priceAlert.findUnique({
+      where: { id },
+      include: { product: true, user: true }
+    });
+    if (!alert) {
+      return res.status(404).json({ message: "Alert not found" });
+    }
+    if (alert.userId !== req.user.id) {
+      return res.status(403).json({ message: "You are not authorized to test this alert" });
+    }
+    const fakePrice = alert.targetPrice ? Math.max(Number(alert.targetPrice) - 1, 0.01) : 1;
+    console.log(
+      `[Test Alert] Simulating price drop to $${fakePrice} for product "${alert.product.title}" (alert ${id})`
+    );
+    const { checkAlertsForProduct: checkAlertsForProduct2 } = await Promise.resolve().then(() => (init_alertChecker(), alertChecker_exports));
+    await prisma_default.priceAlert.update({
+      where: { id },
+      data: { lastNotifiedPrice: null, lastNotifiedAt: null }
+    });
+    await checkAlertsForProduct2(alert.productId, fakePrice);
+    res.json({
+      success: true,
+      message: `Test alert triggered! Simulated price: $${fakePrice}`,
+      details: {
+        product: alert.product.title,
+        targetPrice: alert.targetPrice ? Number(alert.targetPrice) : null,
+        simulatedPrice: fakePrice,
+        emailSentTo: alert.user.email
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 var alert_routes_default = router3;
 
 // src/routes/auth.routes.ts
@@ -521,6 +798,8 @@ import rateLimit from "express-rate-limit";
 import { z as z4 } from "zod";
 
 // src/workers/authenticator.ts
+init_prisma();
+init_env();
 import bcrypt from "bcryptjs";
 import jwt2 from "jsonwebtoken";
 import "dotenv/config";
@@ -622,6 +901,7 @@ var auth_routes_default = router4;
 import { Router as Router5 } from "express";
 
 // src/controllers/user.controller.ts
+init_prisma();
 var getMe = async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ message: "Not authorized, user not found" });
@@ -654,6 +934,7 @@ router5.patch("/me", protect, updateUser);
 var user_routes_default = router5;
 
 // src/routes/notification.routes.ts
+init_prisma();
 import { Router as Router6 } from "express";
 var router6 = Router6();
 router6.get("/", protect, async (req, res, next) => {
@@ -663,7 +944,8 @@ router6.get("/", protect, async (req, res, next) => {
     }
     const notifications = await prisma_default.notification.findMany({
       where: { userId: req.user.id },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      include: { alert: { include: { product: true } } }
     });
     res.json(notifications);
   } catch (error) {
@@ -700,19 +982,20 @@ router6.patch("/:id/read", protect, async (req, res, next) => {
 var notification_routes_default = router6;
 
 // src/routes/notification-stream.routes.ts
+init_prisma();
 import { Router as Router7 } from "express";
+init_env();
 var router7 = Router7();
 router7.get("/", protect, (req, res) => {
   if (!req.user) {
     return res.status(401).json({ message: "Not authorized, user not found" });
   }
   const userId = req.user.id;
-  const frontendOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     "Connection": "keep-alive",
-    "Access-Control-Allow-Origin": frontendOrigin,
+    "Access-Control-Allow-Origin": env.FRONTEND_URL,
     "Access-Control-Allow-Headers": "Cache-Control"
   });
   res.write(`data: ${JSON.stringify({ type: "connected", message: "Connected to notification stream" })}
