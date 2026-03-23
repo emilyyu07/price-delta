@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { productsApi } from '../api/products';
 import { ProductGrid } from '../components/products/ProductGrid';
+import { useDemo } from '../contexts/DemoContext';
 import type { Product } from '../types';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
@@ -12,6 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 export const ProductsPage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { isDemoMode, products: demoProductsList } = useDemo();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
@@ -24,6 +26,14 @@ export const ProductsPage: React.FC = () => {
 
   // Fetch products from backend on mount
   useEffect(() => {
+    // If in demo mode, use demo data directly
+    if (isDemoMode) {
+      setProducts(demoProductsList);
+      setLoading(false);
+      return;
+    }
+
+    // Otherwise, fetch from API
     const fetchAllProducts = async () => {
       try {
         setLoading(true);
@@ -37,7 +47,7 @@ export const ProductsPage: React.FC = () => {
       }
     };
     fetchAllProducts();
-  }, []);
+  }, [isDemoMode, demoProductsList]);
 
   const handleProductClick = (productId: string) => {
     navigate(`/products/${productId}`);
@@ -50,6 +60,13 @@ export const ProductsPage: React.FC = () => {
   // Called from ProductCard trash icon — opens the modal
   const handleRequestDelete = (productId: string, event: React.MouseEvent) => {
     event.stopPropagation();
+
+    // Disable delete in demo mode
+    if (isDemoMode) {
+      setDeleteError('Delete is not available in demo mode.');
+      setTimeout(() => setDeleteError(null), 5000);
+      return;
+    }
 
     if (!isAuthenticated) {
       setDeleteError('You must be logged in to delete products.');

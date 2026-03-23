@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; 
 import { AlertCircle, Trash2, Pencil, Check, X } from 'lucide-react';
 import { alertsApi } from '../api/alerts';
+import { useDemo } from '../contexts/DemoContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -11,6 +12,7 @@ import { useAuth } from '../hooks/useAuth';
 
 export const AlertsPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const { isDemoMode, alerts: demoAlertsList } = useDemo();
   const navigate = useNavigate(); 
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,13 +38,30 @@ export const AlertsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isAuthenticated) { // Only fetch alerts if authenticated
-        fetchAlerts();
+    // If in demo mode, use demo data
+    if (isDemoMode) {
+      setAlerts(demoAlertsList);
+      setLoading(false);
+      return;
     }
-  }, [isAuthenticated]);
+
+    // Otherwise, fetch from API if authenticated
+    if (isAuthenticated) {
+      fetchAlerts();
+    }
+  }, [isAuthenticated, isDemoMode, demoAlertsList]);
 
   const handleDeleteAlert = async () => {
     if (!pendingDeleteId) return;
+
+    // Disable delete in demo mode
+    if (isDemoMode) {
+      setError('Delete is not available in demo mode.');
+      setPendingDeleteId(null);
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     try {
       await alertsApi.delete(pendingDeleteId);
       setAlerts(alerts.filter(alert => alert.id !== pendingDeleteId));
@@ -55,6 +74,12 @@ export const AlertsPage: React.FC = () => {
   };
 
   const handleEditClick = (alert: PriceAlert) => {
+    // Disable edit in demo mode
+    if (isDemoMode) {
+      setError('Editing is not available in demo mode.');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
     setEditingAlertId(alert.id);
     setEditTargetPrice(alert.targetPrice ? parseFloat(alert.targetPrice).toString() : '');
   };

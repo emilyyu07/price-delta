@@ -3,11 +3,13 @@ import { Bell, CheckCircle } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { notificationsApi } from '../api/notifications';
+import { useDemo } from '../contexts/DemoContext';
 import type { Notification } from '../types';
 import { useAuth } from '../hooks/useAuth';
 
 export const NotificationsPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const { isDemoMode, notifications: demoNotificationsList } = useDemo();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +28,27 @@ export const NotificationsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isAuthenticated) { // Only fetch notifications if authenticated
+    // If in demo mode, use demo data
+    if (isDemoMode) {
+      setNotifications(demoNotificationsList);
+      setLoading(false);
+      return;
+    }
+
+    // Otherwise, fetch from API if authenticated
+    if (isAuthenticated) {
       fetchNotifications();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isDemoMode, demoNotificationsList]);
 
   const handleMarkAsRead = async (notificationId: string) => {
+    // Disable mark as read in demo mode
+    if (isDemoMode) {
+      setError('Marking notifications is not available in demo mode.');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     try {
       await notificationsApi.markAsRead(notificationId);
       setNotifications(prevNotifications => 

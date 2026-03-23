@@ -1,17 +1,22 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useDemo } from '../../contexts/DemoContext';
 import { Menu, X } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const { logout, isAuthenticated } = useAuth();
+  const { isDemoMode } = useDemo();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const closeMenu = () => setIsMenuOpen(false);
 
+  // Show navigation if authenticated OR in demo mode
+  const showNavigation = isAuthenticated || isDemoMode;
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-primary-50/60 backdrop-blur-xl border-b border-primary-200/30 shadow-lg">
+    <header className={`fixed left-0 right-0 z-50 bg-primary-50/60 backdrop-blur-xl border-b border-primary-200/30 shadow-lg ${isDemoMode ? 'top-[52px]' : 'top-0'}`}>
       <div className="container mx-auto flex justify-between items-center py-8 px-4">
         <h1 className="text-2xl font-bold font-chic">
           <Link to="/" className="flex items-center gap-2 bg-gradient-to-r from-primary-700 to-primary-900 bg-clip-text text-transparent hover:from-primary-600 hover:to-primary-800 transition-all duration-300">
@@ -22,7 +27,7 @@ export const Header: React.FC = () => {
         
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-6">
-          {isAuthenticated ? (
+          {showNavigation ? (
             <>
               <Link 
                 to="/dashboard" 
@@ -104,7 +109,7 @@ export const Header: React.FC = () => {
       {isMenuOpen && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-primary-50/80 backdrop-blur-xl border-t border-primary-200/30 shadow-xl z-50">
           <nav className="container mx-auto py-6 px-4 flex flex-col space-y-3">
-            {isAuthenticated ? (
+            {showNavigation ? (
               <>
                 <Link 
                   to="/dashboard" 

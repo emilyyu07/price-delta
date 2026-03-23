@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom'; // Import Link
+import { Link, useNavigate } from 'react-router-dom'; // Import Link and useNavigate
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { AmbientBackground } from '../components/layout/AmbientBackground';
+import { enterDemoMode } from '../contexts/DemoContext';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -120,9 +122,26 @@ export const LoginPage: React.FC = () => {
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
             </div>
+
+            <div className={`transition-all duration-600 delay-950 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+              <Button
+                onClick={() => {
+                  enterDemoMode();
+                  navigate('/dashboard');
+                }}
+                variant="secondary"
+                className="w-full text-sm text-primary-500"
+              >
+                View Demo
+              </Button>
+            </div>
           </div>
 
-          <p className={`text-sm text-primary-600 text-center mt-4 font-sleek transition-all duration-600 delay-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'}`}>
+          <p className={`text-xs text-primary-500 text-center mt-2 font-sleek transition-all duration-600 delay-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'}`}>
+            No account needed · Read-only demo
+          </p>
+
+          <p className={`text-sm text-primary-600 text-center mt-4 font-sleek transition-all duration-600 delay-1050 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'}`}>
             Don't have an account?{' '}
             <Link to="/register" className="text-accent-500 hover:underline font-chic transition-all duration-300 hover:scale-105 inline-block">
               Sign Up

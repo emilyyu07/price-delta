@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; // Import useNavigate
 import { useAuth } from "../../hooks/useAuth";
+import { useDemo } from "../../contexts/DemoContext";
 import { ProductGrid } from "../products/ProductGrid";
 import { productsApi } from "../../api/products.js";
 import { alertsApi } from "../../api/alerts.js";
 import { notificationsApi } from "../../api/notifications.js";
 import {ProductTracker} from "./ProductTracker";
-import { AlertCircle, Tag, TrendingDown } from "lucide-react";
+import { AlertCircle, Tag, TrendingDown, Package } from "lucide-react";
 import { AnimatedStatCard } from "../ui/AnimatedStats";
 import { PageTransition } from "../ui/PageTransitions";
 import { ParallaxBackground } from "../ui/PageTransitions";
@@ -14,6 +15,7 @@ import type { Product } from "../../types/index.js";
 
 const Dashboard = () => {
     const { user } = useAuth();
+    const { isDemoMode, products: demoProductsList, alerts: demoAlertsList, notifications: demoNotificationsList } = useDemo();
     const navigate = useNavigate(); // Initialize useNavigate
     const [products, setProducts] = useState<Product[]>([]);
     const [loadingProducts, setLoadingProducts] = useState(true);
@@ -25,6 +27,24 @@ const Dashboard = () => {
     const [dealsNotifiedCount, setDealsNotifiedCount] = useState<number>(0);
 
     useEffect(() => {
+        // If in demo mode, use demo data directly
+        if (isDemoMode) {
+            setProducts(demoProductsList.slice(0, 4));
+            setLoadingProducts(false);
+            
+            // Calculate stats from demo data
+            const activeAlerts = demoAlertsList.filter(a => a.isActive);
+            const priceDrops = demoNotificationsList.filter(n => n.type === 'PRICE_DROP');
+            const dealsNotified = demoNotificationsList.filter(n => n.type === 'PRICE_DROP' || n.type === 'TARGET_REACHED');
+            
+            setActiveAlertsCount(activeAlerts.length);
+            setPriceDropsCount(priceDrops.length);
+            setDealsNotifiedCount(dealsNotified.length);
+            
+            return;
+        }
+
+        // Otherwise, fetch from API
         const fetchProducts = async () => {
             try {
                 setLoadingProducts(true);
@@ -59,7 +79,7 @@ const Dashboard = () => {
         
         fetchProducts();
         fetchStats();
-    }, []);
+    }, [isDemoMode, demoProductsList, demoAlertsList, demoNotificationsList]);
 
     const handleProductClick = (productId: string) => {
       navigate(`/products/${productId}`); 
@@ -106,8 +126,24 @@ const Dashboard = () => {
                         />
                     </div>
 
-                    {/* Product Tracker */}
-                    <ProductTracker />
+                    {/* Product Tracker or Demo Message */}
+                    {isDemoMode ? (
+                        <div className="frosted-surface mb-8 rounded-2xl border p-8">
+                            <div className="flex items-center gap-4 text-center justify-center">
+                                <Package className="h-8 w-8 text-primary-500" />
+                                <div>
+                                    <h3 className="text-xl font-bold font-chic text-primary-900 mb-1">
+                                        Product Tracking
+                                    </h3>
+                                    <p className="text-sm text-primary-600 font-sleek">
+                                        Product tracking requires the backend to be running locally
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <ProductTracker />
+                    )}
 
                     {/* Previously Searched Items */}
                     <h2 className="text-xl font-semibold font-chic text-primary-700 mb-4">Previously Searched Items</h2>

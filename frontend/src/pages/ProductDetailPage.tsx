@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { productsApi } from '../api/products';
+import { useDemo } from '../contexts/DemoContext';
 import { formatCurrency } from '../utils/formatters';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts'; //took out Tooltip, maybe no need
 import { Card } from '../components/common/Card';
@@ -32,6 +33,7 @@ const RETAILER_COLORS = ['#00BCD4', '#FF6B6B', '#4CAF50', '#FF9800', '#9C27B0', 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { isAuthenticated } = useAuth();
+  const { isDemoMode, products: demoProductsList } = useDemo();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [targetPrice, setTargetPrice] = useState<string>('');
@@ -40,6 +42,15 @@ const ProductDetailPage: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
 
   useEffect(() => {
+    // If in demo mode, find the product from demo data
+    if (isDemoMode) {
+      const demoProduct = demoProductsList.find(p => p.id === id);
+      setProduct(demoProduct || null);
+      setLoading(false);
+      return;
+    }
+
+    // Otherwise, fetch from API
     const fetchProduct = async () => {
       if (!id) {
         setLoading(false);
@@ -56,9 +67,15 @@ const ProductDetailPage: React.FC = () => {
       }
     };
     fetchProduct();
-  }, [id]);
+  }, [id, isDemoMode, demoProductsList]);
 
   const handleSetAlert = async () => {
+    // Disable alert creation in demo mode
+    if (isDemoMode) {
+      setAlertError('Setting alerts is not available in demo mode.');
+      return;
+    }
+
     if (!isAuthenticated) {
       setAlertError('Please log in to set an alert.');
       return;

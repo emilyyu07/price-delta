@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useDemo } from '../contexts/DemoContext';
 import { userApi } from '../api/user'; // Import userApi
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
@@ -7,18 +8,29 @@ import { Card } from '../components/common/Card'; // Assuming Card is also a com
 
 export const ProfilePage: React.FC = () => {
   const { user, refreshUser } = useAuth(); // Use refreshUser
-  const [name, setName] = useState(user?.name || '');
+  const { isDemoMode, user: demoUser } = useDemo();
+  const [name, setName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  // Use demo user if in demo mode, otherwise use authenticated user
+  const displayUser = isDemoMode ? demoUser : user;
+
   useEffect(() => {
-    if (user?.name) {
-      setName(user.name);
+    if (displayUser?.name) {
+      setName(displayUser.name);
     }
-  }, [user]);
+  }, [displayUser]);
 
   const handleSave = async () => {
+    // Disable save in demo mode
+    if (isDemoMode) {
+      setError('Profile editing is not available in demo mode.');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
     if (!user) {
       setError('User not authenticated.');
       return;
@@ -57,7 +69,7 @@ export const ProfilePage: React.FC = () => {
             id="email"
             type="email"
             label="Email"
-            value={user?.email || ''}
+            value={displayUser?.email || ''}
             disabled
             className="cursor-not-allowed bg-primary-100"
           />
@@ -72,7 +84,11 @@ export const ProfilePage: React.FC = () => {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Enter your name"
+            disabled={isDemoMode}
           />
+          {isDemoMode && (
+            <p className="text-xs text-primary-500 mt-1">Editing is disabled in demo mode.</p>
+          )}
         </div>
 
         {message && (
@@ -88,8 +104,9 @@ export const ProfilePage: React.FC = () => {
 
         <Button 
           onClick={handleSave}
-          disabled={isSaving}
+          disabled={isSaving || isDemoMode}
           className="w-full md:w-auto"
+          title={isDemoMode ? 'Not available in demo mode' : ''}
         >
           {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>
