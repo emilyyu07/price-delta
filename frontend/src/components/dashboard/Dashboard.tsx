@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; // Import useNavigate
 import { useAuth } from "../../hooks/useAuth";
-import { useDemo } from "../../contexts/DemoContext";
+import { useDemo } from "../../hooks/useDemo";
 import { ProductGrid } from "../products/ProductGrid";
 import { productsApi } from "../../api/products.js";
 import { alertsApi } from "../../api/alerts.js";

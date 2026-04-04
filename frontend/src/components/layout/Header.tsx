@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { useDemo } from '../../contexts/DemoContext';
+import { useDemo } from '../../hooks/useDemo';
 import { Menu, X } from 'lucide-react';
 
 export const Header: React.FC = () => {

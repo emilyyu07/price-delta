@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { productsApi } from '../api/products';
 import { ProductGrid } from '../components/products/ProductGrid';
-import { useDemo } from '../contexts/DemoContext';
+import { useDemo } from '../hooks/useDemo';
 import type { Product } from '../types';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
@@ -84,9 +84,9 @@ export const ProductsPage: React.FC = () => {
       await productsApi.delete(pendingDeleteId);
       setProducts(products.filter(p => p.id !== pendingDeleteId));
       setDeleteError(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error deleting product:', err);
-      const errorMessage = err.response?.data?.error || 'Failed to delete product. Please try again.';
+      const errorMessage = (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to delete product. Please try again.';
       setDeleteError(errorMessage);
       setTimeout(() => setDeleteError(null), 5000);
     } finally {

@@ -6,12 +6,17 @@ interface NotificationStream {
   type: "connected" | "notifications";
   message?: string;
   data?: Notification[];
+  timestamp?: string;
+  serverProcessingTime?: number;
+  count?: number;
+  userId?: string;
 }
 
 export const useRealTimeNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
+  const [lastEventTime, setLastEventTime] = useState<Date | null>(null);
 
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
@@ -47,14 +52,22 @@ export const useRealTimeNotifications = () => {
 
         eventSource.onopen = () => {
           console.log(
-            "[Real-time Notifications] Connected to notification stream",
+            "[Real-time Notifications] ✅ Connected to notification stream",
           );
           setIsConnected(true);
         };
 
         eventSource.onmessage = (event) => {
           try {
+            const clientReceiveTime = new Date();
             const streamData: NotificationStream = JSON.parse(event.data);
+
+            if (streamData.type === "connected") {
+              console.log(
+                `[Real-time Notifications] 🔌 Connection confirmed at ${streamData.timestamp}`,
+                streamData.userId ? `for user ${streamData.userId}` : ""
+              );
+            }
 
             if (streamData.type === "notifications" && streamData.data) {
               const newNotifications = streamData.data;
@@ -62,13 +75,29 @@ export const useRealTimeNotifications = () => {
                 (n) => !n.isRead,
               ).length;
 
+              // Calculate timing metrics
+              const serverTime = streamData.timestamp ? new Date(streamData.timestamp) : null;
+              const serverProcessingTime = streamData.serverProcessingTime || 0;
+              
+              if (serverTime) {
+                const networkLatency = clientReceiveTime.getTime() - serverTime.getTime();
+                console.log(
+                  `[Real-time Notifications] 📊 Timing:\n` +
+                  `  - Server query: ${serverProcessingTime}ms\n` +
+                  `  - Network latency: ${networkLatency}ms\n` +
+                  `  - Total: ${serverProcessingTime + networkLatency}ms\n` +
+                  `  - Notification count: ${streamData.count || 0}`
+                );
+              }
+
               setNotifications(newNotifications);
               setUnreadCount(newUnreadCount);
+              setLastEventTime(clientReceiveTime);
 
               // Show popup notification for new unread notifications
               newNotifications.forEach((notification) => {
                 if (!notification.isRead) {
-                  showPopupNotification(notification);
+                  showPopupNotification(notification, clientReceiveTime);
                 }
               });
             }
@@ -113,11 +142,24 @@ export const useRealTimeNotifications = () => {
     unreadCount,
     isConnected,
     markAsRead,
+    lastEventTime,
   };
 };
 
 // Popup notification function
-const showPopupNotification = (notification: Notification) => {
+const showPopupNotification = (notification: Notification, receivedAt: Date) => {
+  // Calculate time from notification creation to client receipt
+  const createdAt = new Date(notification.createdAt);
+  const totalLatency = receivedAt.getTime() - createdAt.getTime();
+  
+  console.log(
+    `[Real-time Notifications] 🔔 New notification received!\n` +
+    `  - Title: ${notification.title}\n` +
+    `  - Created: ${createdAt.toISOString()}\n` +
+    `  - Received: ${receivedAt.toISOString()}\n` +
+    `  - Total latency: ${totalLatency}ms (${(totalLatency / 1000).toFixed(1)}s)`
+  );
+  
   // Create popup element
   const popup = document.createElement("div");
   popup.className =

@@ -3,7 +3,7 @@ import { Bell, CheckCircle } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { notificationsApi } from '../api/notifications';
-import { useDemo } from '../contexts/DemoContext';
+import { useDemo } from '../hooks/useDemo';
 import type { Notification } from '../types';
 import { useAuth } from '../hooks/useAuth';
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDemo, exitDemoMode } from '../../contexts/DemoContext';
+import { useDemo } from '../../hooks/useDemo';
+import { exitDemoMode } from '../../contexts/demoHelpers';
 import { Info, X } from 'lucide-react';
 
 /**

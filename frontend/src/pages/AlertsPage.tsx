@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; 
 import { AlertCircle, Trash2, Pencil, Check, X } from 'lucide-react';
 import { alertsApi } from '../api/alerts';
-import { useDemo } from '../contexts/DemoContext';
+import { useDemo } from '../hooks/useDemo';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';

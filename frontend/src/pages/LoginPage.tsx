@@ -5,7 +5,7 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { AmbientBackground } from '../components/layout/AmbientBackground';
-import { enterDemoMode } from '../contexts/DemoContext';
+import { enterDemoMode } from '../contexts/demoHelpers';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();

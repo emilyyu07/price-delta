@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useDemo } from '../contexts/DemoContext';
+import { useDemo } from '../hooks/useDemo';
 import { userApi } from '../api/user'; // Import userApi
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';

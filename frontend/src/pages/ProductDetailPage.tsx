@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { productsApi } from '../api/products';
-import { useDemo } from '../contexts/DemoContext';
+import { useDemo } from '../hooks/useDemo';
 import { formatCurrency } from '../utils/formatters';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts'; //took out Tooltip, maybe no need
 import { Card } from '../components/common/Card';
@@ -168,6 +168,7 @@ const ProductDetailPage: React.FC = () => {
   const priceData: ChartDataPoint[] = Array.from(dailyMap.entries())
     .sort((a, b) => a[1]._ts - b[1]._ts)
     .map(([date, values]) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { _ts, ...retailerPrices } = values;
       return { date, ...retailerPrices };
     });

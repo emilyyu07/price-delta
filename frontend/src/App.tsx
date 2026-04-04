@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
-import { useDemo } from './contexts/DemoContext';
+import { useDemo } from './hooks/useDemo';
 import { AmbientBackground } from './components/layout/AmbientBackground';
 import { Layout } from './components/layout/Layout';
 import { DemoBanner } from './components/common/DemoBanner';
