@@ -21,9 +21,10 @@ export function parseUrl(rawUrl: string) {
   };
 }
 
+/* CURRENTLY ONLY SUPPORTS ARITZIA, BUT THIS CAN BE EXPANDED TO OTHER RETAILERS IN THE FUTURE */
 export function extractStoreName(url: string): string {
   try {
-    const hostname = new URL(url).hostname; // e.g., "www.garageclothing.ca"
+    const hostname = new URL(url).hostname;
 
     // split the hostname by periods
     const parts = hostname.split(".");

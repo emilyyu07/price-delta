@@ -12,6 +12,7 @@ router.get("/", protect, (req: AuthRequest, res) => {
     return res.status(401).json({ message: "Not authorized, user not found" });
   }
   const userId = req.user.id;
+  const userEmail = req.user.email;
   
   // Set headers for SSE
   res.writeHead(200, {
@@ -19,15 +20,26 @@ router.get("/", protect, (req: AuthRequest, res) => {
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
     'Access-Control-Allow-Origin': env.FRONTEND_URL,
-    'Access-Control-Allow-Headers': 'Cache-Control'
+    'Access-Control-Allow-Credentials': 'true',
+    'X-Accel-Buffering': 'no' // Disable nginx buffering
   });
 
-  // Send initial connection message
-  res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Connected to notification stream' })}\n\n`);
+  console.log(`[SSE] ✅ User ${userEmail} (${userId}) connected to notification stream`);
+
+  // Send initial connection message with timestamp
+  const connectionMsg = {
+    type: 'connected',
+    message: 'Connected to notification stream',
+    timestamp: new Date().toISOString(),
+    userId: userId
+  };
+  res.write(`data: ${JSON.stringify(connectionMsg)}\n\n`);
 
   // Function to send notifications
   const sendNotification = async () => {
     try {
+      const queryStartTime = Date.now();
+      
       const notifications = await prisma.notification.findMany({
         where: { 
           userId: userId,
@@ -37,22 +49,45 @@ router.get("/", protect, (req: AuthRequest, res) => {
         take: 10
       });
 
-      res.write(`data: ${JSON.stringify({ type: 'notifications', data: notifications })}\n\n`);
+      const queryDuration = Date.now() - queryStartTime;
+
+      const payload = {
+        type: 'notifications',
+        data: notifications,
+        timestamp: new Date().toISOString(),
+        serverProcessingTime: queryDuration,
+        count: notifications.length
+      };
+
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+
+      if (notifications.length > 0) {
+        console.log(`[SSE] 📨 Sent ${notifications.length} notification(s) to ${userEmail} (query took ${queryDuration}ms)`);
+      }
     } catch (error) {
-      console.error('[Notification Stream] Error fetching notifications:', error);
+      console.error(`[SSE] ❌ Error fetching notifications for ${userEmail}:`, error);
     }
   };
 
   // Initial fetch
   sendNotification();
 
-  // Set up polling every 30 seconds
-  const interval = setInterval(sendNotification, 30000);
+  // Set up polling every 30 seconds (configurable via query param for testing)
+  const pollInterval = parseInt(req.query.pollInterval as string) || 30000;
+  const interval = setInterval(sendNotification, pollInterval);
+
+  console.log(`[SSE] Polling every ${pollInterval}ms for user ${userEmail}`);
+
+  // Send heartbeat every 15 seconds to keep connection alive
+  const heartbeatInterval = setInterval(() => {
+    res.write(`:heartbeat ${new Date().toISOString()}\n\n`);
+  }, 15000);
 
   // Clean up on client disconnect
   req.on('close', () => {
     clearInterval(interval);
-    console.log(`[Notification Stream] User ${userId} disconnected`);
+    clearInterval(heartbeatInterval);
+    console.log(`[SSE] ❌ User ${userEmail} (${userId}) disconnected from notification stream`);
   });
 });
 

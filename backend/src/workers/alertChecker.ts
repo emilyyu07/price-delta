@@ -6,6 +6,8 @@ export async function checkAlertsForProduct(
   newPrice: number,
 ) {
   try {
+    const checkStartTime = Date.now();
+    
     const alerts = await prisma.priceAlert.findMany({
       where: {
         productId: productId,
@@ -16,6 +18,8 @@ export async function checkAlertsForProduct(
         product: true,
       },
     });
+
+    console.log(`[Alert Engine] Found ${alerts.length} active alert(s) for product ${productId}`);
 
     for (const alert of alerts) {
       let triggered = false;
@@ -32,20 +36,22 @@ export async function checkAlertsForProduct(
           Number(alert.lastNotifiedPrice) === newPrice
         ) {
           console.log(
-            `[Alert Engine] User ${alert.user.email} already notified about $${newPrice}. Skipping.`,
+            `[Alert Engine] ⏭️  User ${alert.user.email} already notified about $${newPrice}. Skipping.`,
           );
           continue;
         }
 
         console.log(
-          `[Alert Engine] 🚨 ALERT TRIGGERED for User ${alert.user.email}!`,
+          `[Alert Engine] 🚨 ALERT TRIGGERED for User ${alert.user.email}! (Target: $${alert.targetPrice}, New: $${newPrice})`,
         );
 
         // Get product URL directly from product model
         const productUrl = alert.product.url || "https://www.aritzia.com";
 
+        const dbStartTime = Date.now();
+        
         // Update the database first
-        await prisma.$transaction([
+        const [notification] = await prisma.$transaction([
           prisma.notification.create({
             data: {
               userId: alert.userId,
@@ -65,7 +71,10 @@ export async function checkAlertsForProduct(
           }),
         ]);
 
-        // send the email
+        const dbDuration = Date.now() - dbStartTime;
+        console.log(`[Alert Engine] 💾 Notification created in DB (took ${dbDuration}ms) - ID: ${notification.id}, Timestamp: ${notification.createdAt.toISOString()}`);
+
+        // send the email (non-blocking)
         if (alert.user.email) {
           sendPriceDropEmail(
             alert.user.email,
@@ -74,6 +83,9 @@ export async function checkAlertsForProduct(
             productUrl,
           ).catch((err) => console.error("Email error:", err));
         }
+        
+        const totalDuration = Date.now() - checkStartTime;
+        console.log(`[Alert Engine] ✅ Alert processing complete (total: ${totalDuration}ms)`);
       }
     }
   } catch (error) {

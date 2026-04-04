@@ -175,34 +175,40 @@ router.post("/:id/test", protect, async (req: AuthRequest, res, next) => {
         .json({ message: "You are not authorized to test this alert" });
     }
 
-    // Use a fake price guaranteed to trigger: targetPrice - 1, or $1 if no target
-    const fakePrice = alert.targetPrice
-      ? Math.max(Number(alert.targetPrice) - 1, 0.01)
-      : 1.0;
+    // Import the timing test utility
+    const { testNotificationTiming } = await import("../utils/testNotificationTiming.js");
 
     console.log(
-      `[Test Alert] Simulating price drop to $${fakePrice} for product "${alert.product.title}" (alert ${id})`,
+      `\n[API] Test alert triggered via API by ${req.user.email} for alert ${id}`,
     );
 
-    // Import and call the alert checker directly
-    const { checkAlertsForProduct } = await import("../workers/alertChecker.js");
+    // Run the timing test
+    const result = await testNotificationTiming(id);
 
-    // Temporarily clear lastNotifiedPrice so the anti-spam check doesn't block us
-    await prisma.priceAlert.update({
-      where: { id },
-      data: { lastNotifiedPrice: null, lastNotifiedAt: null },
-    });
-
-    await checkAlertsForProduct(alert.productId, fakePrice);
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to trigger test alert",
+        error: result.error,
+      });
+    }
 
     res.json({
       success: true,
-      message: `Test alert triggered! Simulated price: $${fakePrice}`,
+      message: `Test alert triggered successfully!`,
       details: {
         product: alert.product.title,
         targetPrice: alert.targetPrice ? Number(alert.targetPrice) : null,
-        simulatedPrice: fakePrice,
         emailSentTo: alert.user.email,
+        notificationId: result.notificationId,
+        executionTimeMs: result.timings[result.timings.length - 1]?.durationMs,
+      },
+      timings: result.timings,
+      info: {
+        message: "Notification created successfully",
+        ssePollingInterval: "30 seconds",
+        expectedClientReceipt: "0-30 seconds from now",
+        tip: "Check your browser console for SSE timing logs",
       },
     });
   } catch (error) {
