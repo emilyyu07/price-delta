@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { DemoContext } from './DemoContext';
+import { DemoContext } from '../contexts/DemoContext';
 
 /**
  * Hook for consuming the demo context
