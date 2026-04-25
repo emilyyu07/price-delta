@@ -1,4 +1,7 @@
-version: '3.8'
+# Docker Compose configuration for PriceDelta application
+# starts PostgreSQL database and Redis queue for the backend services
+
+version: "3.8"
 
 services:
   # 1. The Redis Queue

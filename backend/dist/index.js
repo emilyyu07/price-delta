@@ -111,12 +111,9 @@ var init_mail = __esm({
 });
 
 // src/workers/alertChecker.ts
-var alertChecker_exports = {};
-__export(alertChecker_exports, {
-  checkAlertsForProduct: () => checkAlertsForProduct
-});
 async function checkAlertsForProduct(productId, newPrice) {
   try {
+    const checkStartTime = Date.now();
     const alerts = await prisma_default.priceAlert.findMany({
       where: {
         productId,
@@ -127,6 +124,9 @@ async function checkAlertsForProduct(productId, newPrice) {
         product: true
       }
     });
+    console.log(
+      `[Alert Engine] Found ${alerts.length} active alert(s) for product ${productId}`
+    );
     for (const alert of alerts) {
       let triggered = false;
       if (alert.targetPrice && newPrice <= Number(alert.targetPrice)) {
@@ -135,15 +135,16 @@ async function checkAlertsForProduct(productId, newPrice) {
       if (triggered) {
         if (alert.lastNotifiedPrice && Number(alert.lastNotifiedPrice) === newPrice) {
           console.log(
-            `[Alert Engine] User ${alert.user.email} already notified about $${newPrice}. Skipping.`
+            `[Alert Engine] \u23ED\uFE0F  User ${alert.user.email} already notified about $${newPrice}. Skipping.`
           );
           continue;
         }
         console.log(
-          `[Alert Engine] \u{1F6A8} ALERT TRIGGERED for User ${alert.user.email}!`
+          `[Alert Engine] \u{1F6A8} ALERT TRIGGERED for User ${alert.user.email}! (Target: $${alert.targetPrice}, New: $${newPrice})`
         );
         const productUrl = alert.product.url || "https://www.aritzia.com";
-        await prisma_default.$transaction([
+        const dbStartTime = Date.now();
+        const [notification] = await prisma_default.$transaction([
           prisma_default.notification.create({
             data: {
               userId: alert.userId,
@@ -162,6 +163,10 @@ async function checkAlertsForProduct(productId, newPrice) {
             }
           })
         ]);
+        const dbDuration = Date.now() - dbStartTime;
+        console.log(
+          `[Alert Engine] \u{1F4BE} Notification created in DB (took ${dbDuration}ms) - ID: ${notification.id}, Timestamp: ${notification.createdAt.toISOString()}`
+        );
         if (alert.user.email) {
           sendPriceDropEmail(
             alert.user.email,
@@ -170,6 +175,10 @@ async function checkAlertsForProduct(productId, newPrice) {
             productUrl
           ).catch((err) => console.error("Email error:", err));
         }
+        const totalDuration = Date.now() - checkStartTime;
+        console.log(
+          `[Alert Engine] \u2705 Alert processing complete (total: ${totalDuration}ms)`
+        );
       }
     }
   } catch (error) {
@@ -181,6 +190,144 @@ var init_alertChecker = __esm({
     "use strict";
     init_prisma();
     init_mail();
+  }
+});
+
+// src/utils/testNotificationTiming.ts
+var testNotificationTiming_exports = {};
+__export(testNotificationTiming_exports, {
+  testNotificationTiming: () => testNotificationTiming
+});
+async function testNotificationTiming(alertId) {
+  const timings = [];
+  const startTime = Date.now();
+  try {
+    timings.push({
+      step: "Start",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    const alert = await prisma_default.priceAlert.findUnique({
+      where: { id: alertId },
+      include: { product: true, user: true }
+    });
+    if (!alert) {
+      return {
+        success: false,
+        timings,
+        error: "Alert not found"
+      };
+    }
+    timings.push({
+      step: "Alert fetched from DB",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      durationMs: Date.now() - startTime
+    });
+    const fakePrice = alert.targetPrice ? Math.max(Number(alert.targetPrice) - 1, 0.01) : 1;
+    console.log(
+      `
+${"=".repeat(60)}
+[Test] Starting notification timing test
+${"=".repeat(60)}
+Alert ID: ${alertId}
+User: ${alert.user.email}
+Product: ${alert.product.title}
+Target Price: $${alert.targetPrice}
+Test Price: $${fakePrice}
+${"=".repeat(60)}
+`
+    );
+    await prisma_default.priceAlert.update({
+      where: { id: alertId },
+      data: { lastNotifiedPrice: null, lastNotifiedAt: null }
+    });
+    timings.push({
+      step: "Anti-spam fields cleared",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      durationMs: Date.now() - startTime
+    });
+    const triggerStartTime = Date.now();
+    await checkAlertsForProduct(alert.productId, fakePrice);
+    const triggerDuration = Date.now() - triggerStartTime;
+    timings.push({
+      step: "Alert check completed",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      durationMs: Date.now() - startTime
+    });
+    const notification = await prisma_default.notification.findFirst({
+      where: {
+        userId: alert.userId,
+        alertId
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    timings.push({
+      step: "Notification fetched from DB",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      durationMs: Date.now() - startTime
+    });
+    const totalDuration = Date.now() - startTime;
+    console.log(
+      `
+${"=".repeat(60)}
+TIMING REPORT
+${"=".repeat(60)}
+`
+    );
+    timings.forEach((timing, index) => {
+      const duration = timing.durationMs !== void 0 ? `(+${timing.durationMs}ms)` : "";
+      console.log(`${index + 1}. ${timing.step.padEnd(35)} ${duration}`);
+    });
+    console.log(
+      `
+${"=".repeat(60)}
+SUMMARY
+${"=".repeat(60)}
+\u2705 Notification created: ${notification?.id || "N/A"}
+\u23F1\uFE0F  Alert trigger time: ${triggerDuration}ms
+\u23F1\uFE0F  Total execution time: ${totalDuration}ms
+\u{1F4C5} Notification timestamp: ${notification?.createdAt.toISOString() || "N/A"}
+
+\u26A0\uFE0F  NOTE: SSE polling happens every 30 seconds.
+   Clients will receive this notification on the next poll.
+   Expected client receipt: within 0-30 seconds from now.
+${"=".repeat(60)}
+`
+    );
+    return {
+      success: true,
+      timings,
+      notificationId: notification?.id
+    };
+  } catch (error) {
+    console.error("[Test] Error during timing test:", error);
+    return {
+      success: false,
+      timings,
+      error: error instanceof Error ? error.message : "Unknown error"
+    };
+  }
+}
+var isMainModule;
+var init_testNotificationTiming = __esm({
+  "src/utils/testNotificationTiming.ts"() {
+    "use strict";
+    init_prisma();
+    init_alertChecker();
+    isMainModule = process.argv[1]?.replace(/\\/g, "/").endsWith("testNotificationTiming.ts");
+    if (isMainModule) {
+      const alertId = process.argv[2];
+      if (!alertId) {
+        console.error("Usage: tsx src/utils/testNotificationTiming.ts <alertId>");
+        process.exit(1);
+      }
+      testNotificationTiming(alertId).then(() => {
+        console.log("\n\u2705 Test complete. Check your SSE connection logs.");
+        process.exit(0);
+      }).catch((error) => {
+        console.error("\n\u274C Test failed:", error);
+        process.exit(1);
+      });
+    }
   }
 });
 
@@ -712,7 +859,11 @@ router3.patch(
         where: { id },
         data: { targetPrice: new Decimal(targetPrice) }
       });
-      res.json({ success: true, message: "Alert updated!", alert: updatedAlert });
+      res.json({
+        success: true,
+        message: "Alert updated!",
+        alert: updatedAlert
+      });
     } catch (error) {
       next(error);
     }
@@ -766,24 +917,35 @@ router3.post("/:id/test", protect, async (req, res, next) => {
     if (alert.userId !== req.user.id) {
       return res.status(403).json({ message: "You are not authorized to test this alert" });
     }
-    const fakePrice = alert.targetPrice ? Math.max(Number(alert.targetPrice) - 1, 0.01) : 1;
+    const { testNotificationTiming: testNotificationTiming2 } = await Promise.resolve().then(() => (init_testNotificationTiming(), testNotificationTiming_exports));
     console.log(
-      `[Test Alert] Simulating price drop to $${fakePrice} for product "${alert.product.title}" (alert ${id})`
+      `
+[API] Test alert triggered via API by ${req.user.email} for alert ${id}`
     );
-    const { checkAlertsForProduct: checkAlertsForProduct2 } = await Promise.resolve().then(() => (init_alertChecker(), alertChecker_exports));
-    await prisma_default.priceAlert.update({
-      where: { id },
-      data: { lastNotifiedPrice: null, lastNotifiedAt: null }
-    });
-    await checkAlertsForProduct2(alert.productId, fakePrice);
+    const result = await testNotificationTiming2(id);
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to trigger test alert",
+        error: result.error
+      });
+    }
     res.json({
       success: true,
-      message: `Test alert triggered! Simulated price: $${fakePrice}`,
+      message: `Test alert triggered successfully!`,
       details: {
         product: alert.product.title,
         targetPrice: alert.targetPrice ? Number(alert.targetPrice) : null,
-        simulatedPrice: fakePrice,
-        emailSentTo: alert.user.email
+        emailSentTo: alert.user.email,
+        notificationId: result.notificationId,
+        executionTimeMs: result.timings[result.timings.length - 1]?.durationMs
+      },
+      timings: result.timings,
+      info: {
+        message: "Notification created successfully",
+        ssePollingInterval: "30 seconds",
+        expectedClientReceipt: "0-30 seconds from now",
+        tip: "Check your browser console for SSE timing logs"
       }
     });
   } catch (error) {
@@ -991,18 +1153,31 @@ router7.get("/", protect, (req, res) => {
     return res.status(401).json({ message: "Not authorized, user not found" });
   }
   const userId = req.user.id;
+  const userEmail = req.user.email;
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
-    "Connection": "keep-alive",
+    Connection: "keep-alive",
     "Access-Control-Allow-Origin": env.FRONTEND_URL,
-    "Access-Control-Allow-Headers": "Cache-Control"
+    "Access-Control-Allow-Credentials": "true",
+    "X-Accel-Buffering": "no"
+    // Disable nginx buffering
   });
-  res.write(`data: ${JSON.stringify({ type: "connected", message: "Connected to notification stream" })}
+  console.log(
+    `[SSE] \u2705 User ${userEmail} (${userId}) connected to notification stream`
+  );
+  const connectionMsg = {
+    type: "connected",
+    message: "Connected to notification stream",
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    userId
+  };
+  res.write(`data: ${JSON.stringify(connectionMsg)}
 
 `);
   const sendNotification = async () => {
     try {
+      const queryStartTime = Date.now();
       const notifications = await prisma_default.notification.findMany({
         where: {
           userId,
@@ -1011,18 +1186,44 @@ router7.get("/", protect, (req, res) => {
         orderBy: { createdAt: "desc" },
         take: 10
       });
-      res.write(`data: ${JSON.stringify({ type: "notifications", data: notifications })}
+      const queryDuration = Date.now() - queryStartTime;
+      const payload = {
+        type: "notifications",
+        data: notifications,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        serverProcessingTime: queryDuration,
+        count: notifications.length
+      };
+      res.write(`data: ${JSON.stringify(payload)}
 
 `);
+      if (notifications.length > 0) {
+        console.log(
+          `[SSE] \u{1F4E8} Sent ${notifications.length} notification(s) to ${userEmail} (query took ${queryDuration}ms)`
+        );
+      }
     } catch (error) {
-      console.error("[Notification Stream] Error fetching notifications:", error);
+      console.error(
+        `[SSE] \u274C Error fetching notifications for ${userEmail}:`,
+        error
+      );
     }
   };
   sendNotification();
-  const interval = setInterval(sendNotification, 3e4);
+  const pollInterval = parseInt(req.query.pollInterval) || 3e4;
+  const interval = setInterval(sendNotification, pollInterval);
+  console.log(`[SSE] Polling every ${pollInterval}ms for user ${userEmail}`);
+  const heartbeatInterval = setInterval(() => {
+    res.write(`:heartbeat ${(/* @__PURE__ */ new Date()).toISOString()}
+
+`);
+  }, 15e3);
   req.on("close", () => {
     clearInterval(interval);
-    console.log(`[Notification Stream] User ${userId} disconnected`);
+    clearInterval(heartbeatInterval);
+    console.log(
+      `[SSE] \u274C User ${userEmail} (${userId}) disconnected from notification stream`
+    );
   });
 });
 var notification_stream_routes_default = router7;

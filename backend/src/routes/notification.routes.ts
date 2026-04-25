@@ -1,3 +1,12 @@
+/*
+Notifcation Routes:
+- mounted on /api/notifications
+- GET /api/notifications: Get all notifications for the logged-in user
+- PATCH /api/notifications/:id/read: Mark a notification as read
+
+Handles in app inbox notifications for price alerts, etc.
+
+*/
 import { Router } from "express";
 import prisma from "../config/prisma.js";
 import { protect } from "../middleware/auth.middleware.js";
@@ -9,7 +18,9 @@ const router = Router();
 router.get("/", protect, async (req: AuthRequest, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized, user not found" });
+      return res
+        .status(401)
+        .json({ message: "Not authorized, user not found" });
     }
     const notifications = await prisma.notification.findMany({
       where: { userId: req.user.id },
@@ -26,7 +37,9 @@ router.get("/", protect, async (req: AuthRequest, res, next) => {
 router.patch("/:id/read", protect, async (req: AuthRequest, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized, user not found" });
+      return res
+        .status(401)
+        .json({ message: "Not authorized, user not found" });
     }
     const { id } = req.params as { id: string };
     const userId = req.user.id;

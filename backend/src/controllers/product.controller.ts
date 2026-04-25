@@ -1,3 +1,6 @@
+/*
+Handles product tracking requests, checks product status, and manages the scraping queue
+*/
 import type { Request, Response } from "express";
 import { scrapeQueue } from "../queue/priceQueue.js";
 import { parseUrl, extractStoreName } from "../utils/urlParser.js";

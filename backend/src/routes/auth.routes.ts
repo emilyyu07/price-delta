@@ -1,3 +1,11 @@
+/*
+Authentication Routes:
+- mounted on /api/auth
+- POST /api/auth/login: Authenticate user and return JWT token
+- POST /api/auth/register: Register a new user and return JWT token
+- Rate limited to prevent brute-force attacks
+*/
+
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";

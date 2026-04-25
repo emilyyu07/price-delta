@@ -1,3 +1,9 @@
+/*
+Authentication Middleware: 
+- Verifies JWT tokens
+- retrieves user info from database
+- protects routes that require authentication
+*/
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../config/prisma.js";
@@ -25,8 +31,7 @@ export const protect = async (
   next: NextFunction,
 ) => {
   const headerToken =
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
+    req.headers.authorization && req.headers.authorization.startsWith("Bearer")
       ? req.headers.authorization.split(" ")[1]
       : undefined;
   const queryToken =

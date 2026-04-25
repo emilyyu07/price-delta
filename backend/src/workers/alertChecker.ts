@@ -1,3 +1,9 @@
+/*
+Email alert checker worker:
+- checkAlertsForProduct(productId, newPrice): 
+  Checks all active alerts for the given product and triggers notifications if conditions are met
+- Includes anti-spam logic to prevent multiple notifications for the same price point
+*/
 import prisma from "../config/prisma.js";
 import { sendPriceDropEmail } from "../config/mail.js";
 
@@ -7,7 +13,7 @@ export async function checkAlertsForProduct(
 ) {
   try {
     const checkStartTime = Date.now();
-    
+
     const alerts = await prisma.priceAlert.findMany({
       where: {
         productId: productId,
@@ -19,7 +25,9 @@ export async function checkAlertsForProduct(
       },
     });
 
-    console.log(`[Alert Engine] Found ${alerts.length} active alert(s) for product ${productId}`);
+    console.log(
+      `[Alert Engine] Found ${alerts.length} active alert(s) for product ${productId}`,
+    );
 
     for (const alert of alerts) {
       let triggered = false;
@@ -49,7 +57,7 @@ export async function checkAlertsForProduct(
         const productUrl = alert.product.url || "https://www.aritzia.com";
 
         const dbStartTime = Date.now();
-        
+
         // Update the database first
         const [notification] = await prisma.$transaction([
           prisma.notification.create({
@@ -72,7 +80,9 @@ export async function checkAlertsForProduct(
         ]);
 
         const dbDuration = Date.now() - dbStartTime;
-        console.log(`[Alert Engine] 💾 Notification created in DB (took ${dbDuration}ms) - ID: ${notification.id}, Timestamp: ${notification.createdAt.toISOString()}`);
+        console.log(
+          `[Alert Engine] 💾 Notification created in DB (took ${dbDuration}ms) - ID: ${notification.id}, Timestamp: ${notification.createdAt.toISOString()}`,
+        );
 
         // send the email (non-blocking)
         if (alert.user.email) {
@@ -83,9 +93,11 @@ export async function checkAlertsForProduct(
             productUrl,
           ).catch((err) => console.error("Email error:", err));
         }
-        
+
         const totalDuration = Date.now() - checkStartTime;
-        console.log(`[Alert Engine] ✅ Alert processing complete (total: ${totalDuration}ms)`);
+        console.log(
+          `[Alert Engine] ✅ Alert processing complete (total: ${totalDuration}ms)`,
+        );
       }
     }
   } catch (error) {

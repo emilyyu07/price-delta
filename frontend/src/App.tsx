@@ -1,10 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
-import { useDemo } from './hooks/useDemo';
 import { AmbientBackground } from './components/layout/AmbientBackground';
 import { Layout } from './components/layout/Layout';
-import { DemoBanner } from './components/common/DemoBanner';
 
 // Import all page components
 import { LoginPage } from './pages/LoginPage';
@@ -23,7 +21,6 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
-  const { isDemoMode } = useDemo();
 
   if (isLoading) {
     return (
@@ -36,8 +33,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // Allow access if authenticated OR in demo mode
-  if (!isAuthenticated && !isDemoMode) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
@@ -46,7 +42,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
 const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const { isDemoMode } = useDemo();
 
   if (isLoading) {
     return (
@@ -61,12 +56,11 @@ const App: React.FC = () => {
 
   return (
     <BrowserRouter>
-      <DemoBanner />
       <Routes>
         {/* Public Routes */}
-        <Route path="/login" element={(isAuthenticated || isDemoMode) ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
-        <Route path="/register" element={(isAuthenticated || isDemoMode) ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
-        <Route path="/" element={(isAuthenticated || isDemoMode) ? <Navigate to="/dashboard" replace /> : <LoginPage />} /> {/* Default route */}
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+        <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
+        <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} /> {/* Default route */}
 
         {/* Protected Routes */}
         <Route

@@ -1,3 +1,7 @@
+/*
+Health Route:
+- check for endpoint responsiveness for API process monitoring
+*/
 import { Router } from "express";
 import { getHealth } from "../controllers/health.controller.js";
 const router = Router();

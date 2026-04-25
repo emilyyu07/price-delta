@@ -2,33 +2,38 @@
 # Stage 1: Builder
 # Purpose: Install dependencies and build the TypeScript code
 # ==========================================
+
+# start build stage from Node Alpine base layer
 FROM node:20-alpine3.17 AS builder
 
-# Set working directory
+# Set default working directory for next instructions
 WORKDIR /app
 
-# Copy package files
-# Why separate? Docker caches layers - if package.json doesn't change,
-# it won't reinstall dependencies (saves time on rebuilds)
+# Copy package files, adds package manifests into image layer. 
+# This allows Docker to cache npm install step, so it only runs again if package.json or package-lock.json changes.
 COPY package*.json ./
 COPY prisma ./prisma/
 
 # Install ALL dependencies (including devDependencies for building)
+# installs expact lockfile dependencies into node_modules, ensuring consistent builds
 RUN npm ci
 
-# Copy source code
+# Copy source code into image
 COPY . .
 
 # Generate Prisma Client
 RUN npx prisma generate
 
 # Build TypeScript to JavaScript
+# produces static dist/ bundle via Vite
 RUN npm run build
 
 # ==========================================
 # Stage 2: Production
 # Purpose: Create minimal production image
 # ==========================================
+
+# creates a new minimal runtime stage with Nginx
 FROM node:20-alpine3.17 AS production
 
 # Install system dependencies for Playwright and Prisma
@@ -43,6 +48,7 @@ RUN apk add --no-cache \
     openssl
 
 # Tell Playwright to use the system Chromium
+# FIX THIS ERROR (using playwright, need to modify env vars)
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 

@@ -1,10 +1,20 @@
+/*
+Handles logic for user authentication:
+- registerUser(email, password, name?): Registers a new user and returns a JWT token
+- loginUser(email, password): Authenticates a user and returns a JWT token
+*/
+
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../config/prisma.js";
 import { env } from "../config/env.js";
 import "dotenv/config";
 
-export const registerUser = async (email: string, password: string, name?: string) => {
+export const registerUser = async (
+  email: string,
+  password: string,
+  name?: string,
+) => {
   // Normalize email to lowercase for consistency
   const normalizedEmail = email.toLowerCase().trim();
 
@@ -23,8 +33,8 @@ export const registerUser = async (email: string, password: string, name?: strin
 
   const hashedPassword = await bcrypt.hash(password, 10);
   const newUser = await prisma.user.create({
-    data: { 
-      email: normalizedEmail, 
+    data: {
+      email: normalizedEmail,
       password: hashedPassword,
       name: name?.trim() || null,
     },

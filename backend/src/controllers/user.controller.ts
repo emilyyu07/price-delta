@@ -1,3 +1,6 @@
+/*
+Handles user authentication, profile retrieval, and profile updates
+*/
 import type { Response } from "express";
 import type { AuthRequest } from "../middleware/auth.middleware.js";
 import prisma from "../config/prisma.js";

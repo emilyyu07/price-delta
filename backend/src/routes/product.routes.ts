@@ -1,3 +1,15 @@
+/*
+Product Routes:
+- mounted on /api/products
+- POST /api/products/track: Start tracking a new product by URL (requires authentication)
+- GET /api/products/track/:listingId/status: Get tracking status for a product listing (requires authentication)
+- GET /api/products: Get a list of all tracked products with their active listings (public)
+- GET /api/products/:id: Get detailed information and price history for a specific product (public)
+- DELETE /api/products/:id: Delete a tracked product (requires authentication)  
+
+Handles product ingestion, polling status, product catalog retrieval, etc.
+*/
+
 import { Router } from "express";
 import {
   getTrackStatus,
@@ -96,7 +108,7 @@ router.get("/", async (_req, res, next) => {
 
     return res.json({
       items,
-      nextCursor: hasNextPage ? items[items.length - 1]?.id ?? null : null,
+      nextCursor: hasNextPage ? (items[items.length - 1]?.id ?? null) : null,
       hasNextPage,
     });
   } catch (error) {

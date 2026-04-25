@@ -1,3 +1,14 @@
+/*
+Alert Routes:
+- mounted on /api/alerts
+- GET /api/alerts: Get all price alerts for the logged-in user
+- POST /api/alerts: Create a new price alert for the logged-in user
+- PATCH /api/alerts/:id: Update an existing price alert for the logged-in user
+- DELETE /api/alerts/:id: Delete a price alert for the logged-in user
+- POST /api/alerts/:id/test: Trigger a test alert to verify the notification pipeline (only in development)
+
+Handles CRUD operations for price alerts
+*/
 import { Router } from "express";
 import prisma from "../config/prisma.js";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -20,7 +31,9 @@ const updateAlertSchema = z.object({
 router.get("/", protect, async (req: AuthRequest, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized, user not found" });
+      return res
+        .status(401)
+        .json({ message: "Not authorized, user not found" });
     }
     const alerts = await prisma.priceAlert.findMany({
       where: { userId: req.user.id },
@@ -70,9 +83,11 @@ router.patch(
   async (req: AuthRequest, res, next) => {
     try {
       if (!req.user) {
-        return res.status(401).json({ message: "Not authorized, user not found" });
+        return res
+          .status(401)
+          .json({ message: "Not authorized, user not found" });
       }
-      
+
       const { id } = req.params;
       const { targetPrice } = req.body;
 
@@ -99,18 +114,24 @@ router.patch(
         data: { targetPrice: new Decimal(targetPrice) },
       });
 
-      res.json({ success: true, message: "Alert updated!", alert: updatedAlert });
+      res.json({
+        success: true,
+        message: "Alert updated!",
+        alert: updatedAlert,
+      });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // DELETE an alert for the logged-in user
 router.delete("/:id", protect, async (req: AuthRequest, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized, user not found" });
+      return res
+        .status(401)
+        .json({ message: "Not authorized, user not found" });
     }
     const { id } = req.params;
 
@@ -147,11 +168,15 @@ router.delete("/:id", protect, async (req: AuthRequest, res, next) => {
 router.post("/:id/test", protect, async (req: AuthRequest, res, next) => {
   try {
     if (process.env.NODE_ENV === "production") {
-      return res.status(403).json({ message: "Test endpoint disabled in production" });
+      return res
+        .status(403)
+        .json({ message: "Test endpoint disabled in production" });
     }
 
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized, user not found" });
+      return res
+        .status(401)
+        .json({ message: "Not authorized, user not found" });
     }
 
     const { id } = req.params;
@@ -176,7 +201,8 @@ router.post("/:id/test", protect, async (req: AuthRequest, res, next) => {
     }
 
     // Import the timing test utility
-    const { testNotificationTiming } = await import("../utils/testNotificationTiming.js");
+    const { testNotificationTiming } =
+      await import("../utils/testNotificationTiming.js");
 
     console.log(
       `\n[API] Test alert triggered via API by ${req.user.email} for alert ${id}`,

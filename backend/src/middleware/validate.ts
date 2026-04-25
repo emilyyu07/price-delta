@@ -1,3 +1,8 @@
+/*
+Request Validation Middleware: 
+- Validates request body against a Zod schema
+- Returns 400 error with validation details if validation fails
+*/
 import type { NextFunction, Request, Response } from "express";
 import type { ZodTypeAny } from "zod";
 
@@ -16,4 +21,3 @@ export const validate =
     req.body = result.data;
     return next();
   };
-

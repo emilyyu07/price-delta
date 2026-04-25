@@ -1,3 +1,10 @@
+/*
+
+Price monitoring service:
+- saveScrapedPrice(listingId, newPrice): 
+  Saves the newly scraped price to the database and triggers alert checks
+
+*/
 import prisma from "../config/prisma.js";
 import { checkAlertsForProduct } from "../workers/alertChecker.js";
 

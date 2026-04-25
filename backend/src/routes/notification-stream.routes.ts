@@ -1,3 +1,13 @@
+/*
+Notification (SSE) Routes:
+- mounted on /api/notifications/stream
+- GET /api/notifications/stream: Establish a Server-Sent Events (SSE) connection to stream real-time notifications for the logged-in user
+- Streams new notifications as they arrive, with heartbeat messages to keep the connection alive
+- Uses polling to check for new notifications every 30 seconds (configurable via query param)
+- Handles client disconnects gracefully
+
+Handles SSE feed for real-time notifications to frontend (delivery channel)
+*/
 import { Router } from "express";
 import prisma from "../config/prisma.js";
 import { protect } from "../middleware/auth.middleware.js";
@@ -13,25 +23,27 @@ router.get("/", protect, (req: AuthRequest, res) => {
   }
   const userId = req.user.id;
   const userEmail = req.user.email;
-  
+
   // Set headers for SSE
   res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': env.FRONTEND_URL,
-    'Access-Control-Allow-Credentials': 'true',
-    'X-Accel-Buffering': 'no' // Disable nginx buffering
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "Access-Control-Allow-Origin": env.FRONTEND_URL,
+    "Access-Control-Allow-Credentials": "true",
+    "X-Accel-Buffering": "no", // Disable nginx buffering
   });
 
-  console.log(`[SSE] ✅ User ${userEmail} (${userId}) connected to notification stream`);
+  console.log(
+    `[SSE] ✅ User ${userEmail} (${userId}) connected to notification stream`,
+  );
 
   // Send initial connection message with timestamp
   const connectionMsg = {
-    type: 'connected',
-    message: 'Connected to notification stream',
+    type: "connected",
+    message: "Connected to notification stream",
     timestamp: new Date().toISOString(),
-    userId: userId
+    userId: userId,
   };
   res.write(`data: ${JSON.stringify(connectionMsg)}\n\n`);
 
@@ -39,33 +51,38 @@ router.get("/", protect, (req: AuthRequest, res) => {
   const sendNotification = async () => {
     try {
       const queryStartTime = Date.now();
-      
+
       const notifications = await prisma.notification.findMany({
-        where: { 
+        where: {
           userId: userId,
-          isRead: false 
+          isRead: false,
         },
-        orderBy: { createdAt: 'desc' },
-        take: 10
+        orderBy: { createdAt: "desc" },
+        take: 10,
       });
 
       const queryDuration = Date.now() - queryStartTime;
 
       const payload = {
-        type: 'notifications',
+        type: "notifications",
         data: notifications,
         timestamp: new Date().toISOString(),
         serverProcessingTime: queryDuration,
-        count: notifications.length
+        count: notifications.length,
       };
 
       res.write(`data: ${JSON.stringify(payload)}\n\n`);
 
       if (notifications.length > 0) {
-        console.log(`[SSE] 📨 Sent ${notifications.length} notification(s) to ${userEmail} (query took ${queryDuration}ms)`);
+        console.log(
+          `[SSE] 📨 Sent ${notifications.length} notification(s) to ${userEmail} (query took ${queryDuration}ms)`,
+        );
       }
     } catch (error) {
-      console.error(`[SSE] ❌ Error fetching notifications for ${userEmail}:`, error);
+      console.error(
+        `[SSE] ❌ Error fetching notifications for ${userEmail}:`,
+        error,
+      );
     }
   };
 
@@ -84,10 +101,12 @@ router.get("/", protect, (req: AuthRequest, res) => {
   }, 15000);
 
   // Clean up on client disconnect
-  req.on('close', () => {
+  req.on("close", () => {
     clearInterval(interval);
     clearInterval(heartbeatInterval);
-    console.log(`[SSE] ❌ User ${userEmail} (${userId}) disconnected from notification stream`);
+    console.log(
+      `[SSE] ❌ User ${userEmail} (${userId}) disconnected from notification stream`,
+    );
   });
 });
 

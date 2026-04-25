@@ -1,4 +1,10 @@
-// web Scraper for Aritzia
+/*
+ Aritzia Web Scraper:
+ - Uses Playwright with stealth plugin to scrape product price, image, and title from Aritzia product pages
+ - Implements human-like behaviour (random mouse movements, scrolling, delays) to avoid bot detection
+ - Robust error handling for timeouts, DOM changes, and bot blocks
+ - Returns structured data for price, image URL, and product title
+*/
 
 import { chromium as baseChromium } from "playwright";
 import { chromium as stealthChromium } from "playwright-extra";

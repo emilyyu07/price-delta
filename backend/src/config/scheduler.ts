@@ -8,6 +8,7 @@ export const initScheduledJobs = () => {
   // Run every 4 hours instead of daily (0 */4 * * *)
   cron.schedule("0 */4 * * *", async () => {
     console.log("[CRON] Waking up to check all tracked prices...");
+
     try {
       //find all active/tracked product listings
       const activeListings = await prisma.productListing.findMany({

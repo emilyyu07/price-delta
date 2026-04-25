@@ -384,6 +384,7 @@ var sendPriceDropEmail = async (toEmail, productName, newPrice, productUrl) => {
 // src/workers/alertChecker.ts
 async function checkAlertsForProduct(productId, newPrice) {
   try {
+    const checkStartTime = Date.now();
     const alerts = await prisma_default.priceAlert.findMany({
       where: {
         productId,
@@ -394,6 +395,9 @@ async function checkAlertsForProduct(productId, newPrice) {
         product: true
       }
     });
+    console.log(
+      `[Alert Engine] Found ${alerts.length} active alert(s) for product ${productId}`
+    );
     for (const alert of alerts) {
       let triggered = false;
       if (alert.targetPrice && newPrice <= Number(alert.targetPrice)) {
@@ -402,15 +406,16 @@ async function checkAlertsForProduct(productId, newPrice) {
       if (triggered) {
         if (alert.lastNotifiedPrice && Number(alert.lastNotifiedPrice) === newPrice) {
           console.log(
-            `[Alert Engine] User ${alert.user.email} already notified about $${newPrice}. Skipping.`
+            `[Alert Engine] \u23ED\uFE0F  User ${alert.user.email} already notified about $${newPrice}. Skipping.`
           );
           continue;
         }
         console.log(
-          `[Alert Engine] \u{1F6A8} ALERT TRIGGERED for User ${alert.user.email}!`
+          `[Alert Engine] \u{1F6A8} ALERT TRIGGERED for User ${alert.user.email}! (Target: $${alert.targetPrice}, New: $${newPrice})`
         );
         const productUrl = alert.product.url || "https://www.aritzia.com";
-        await prisma_default.$transaction([
+        const dbStartTime = Date.now();
+        const [notification] = await prisma_default.$transaction([
           prisma_default.notification.create({
             data: {
               userId: alert.userId,
@@ -429,6 +434,10 @@ async function checkAlertsForProduct(productId, newPrice) {
             }
           })
         ]);
+        const dbDuration = Date.now() - dbStartTime;
+        console.log(
+          `[Alert Engine] \u{1F4BE} Notification created in DB (took ${dbDuration}ms) - ID: ${notification.id}, Timestamp: ${notification.createdAt.toISOString()}`
+        );
         if (alert.user.email) {
           sendPriceDropEmail(
             alert.user.email,
@@ -437,6 +446,10 @@ async function checkAlertsForProduct(productId, newPrice) {
             productUrl
           ).catch((err) => console.error("Email error:", err));
         }
+        const totalDuration = Date.now() - checkStartTime;
+        console.log(
+          `[Alert Engine] \u2705 Alert processing complete (total: ${totalDuration}ms)`
+        );
       }
     }
   } catch (error) {

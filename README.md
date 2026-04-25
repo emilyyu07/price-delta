@@ -128,7 +128,7 @@ docker compose up -d
 
 This starts:
 
-- **PostgreSQL** on `localhost:5432` (user: `admin`, password: `root`, db: `pricedelta`)
+- **PostgreSQL** on `localhost:5433` (user: `admin`, password: `root`, db: `pricedelta`)
 - **Redis** on `localhost:6379`
 
 ### 3. Configure the backend
