@@ -1,13 +1,18 @@
 #!/bin/bash
 
+# Ensure script runs from project root
+cd "$(dirname "$0")"
+
 # Start up database and Redis 
 docker compose up -d
 
 # Wait until Postgres is ready 
-until docker compose exec db pg_isready -U admin -d pricedelta > /dev/null 2>&1; do
+until docker compose exec postgres pg_isready -U postgres > /dev/null 2>&1; do
   echo "Waiting for Postgres..."
   sleep 1
 done
+
+echo "Postgres is ready!"
 
 # Backend API
 (cd backend && npm run dev) &
@@ -18,9 +23,10 @@ API_PID=$!
 WORKER_PID=$!
 
 # Frontend
-(cd frontend && npm start) &
+(cd frontend && npm run dev) &
 FRONTEND_PID=$!
 
-trap "kill $API_PID $WORKER_PID $FRONTEND_PID" EXIT
+# Cleanup on exit
+trap "kill $API_PID $WORKER_PID $FRONTEND_PID; docker compose down" EXIT
 
 wait

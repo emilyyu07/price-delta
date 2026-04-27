@@ -4,6 +4,7 @@ Authentication Middleware:
 - retrieves user info from database
 - protects routes that require authentication
 */
+
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../config/prisma.js";

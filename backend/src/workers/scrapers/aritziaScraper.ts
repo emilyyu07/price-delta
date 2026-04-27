@@ -53,7 +53,7 @@ async function humanMouseMove(page: Page): Promise<void> {
   }
 }
 
-// ─── Browser launch ───────────────────────────────────────────────────────────
+// Browser Launch
 
 async function getOrLaunchBrowser(): Promise<Browser> {
   // Liveness check — if Chromium crashed, globalBrowser is non-null but dead
@@ -189,18 +189,18 @@ export async function scrapeAritziaPrice(
 
       if (cancelled) throw new Error("Scrape cancelled due to timeout");
 
-      // Land on the homepage first ──────────────────────────────────
+      // Land on the homepage first
       console.log("🏠 [Scraper] Visiting homepage to establish session...");
       await page.goto("https://www.aritzia.com/en/aritzia", {
         waitUntil: "domcontentloaded",
         timeout: 30000,
       });
-      await humanDelay(1500, 3000);
+      await humanDelay(1000, 2000);
       await humanMouseMove(page);
 
       if (cancelled) throw new Error("Scrape cancelled due to timeout");
 
-      // Navigate to the product page ────────────────────────────────
+      // Navigate to the product page
       console.log(`🌐 [Scraper] Navigating to product: ${productUrl}`);
       await page.goto(productUrl, {
         waitUntil: "networkidle",
@@ -211,7 +211,7 @@ export async function scrapeAritziaPrice(
       if (cancelled) throw new Error("Scrape cancelled due to timeout");
 
       // Human-like behaviour before extraction
-      const pauseMs = randInt(2000, 4000);
+      const pauseMs = randInt(1500, 3000);
       console.log(
         `⏳ [Scraper] Pausing ${pauseMs}ms and simulating human behaviour...`,
       );
