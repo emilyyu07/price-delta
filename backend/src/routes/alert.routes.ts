@@ -19,7 +19,7 @@ import { z } from "zod";
 
 const router = Router();
 const createAlertSchema = z.object({
-  productId: z.string().uuid("productId must be a valid UUID."),
+  productId: z.uuid("productId must be a valid UUID."),
   targetPrice: z.number().positive("Target price must be positive."),
 });
 

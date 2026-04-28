@@ -13,6 +13,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// retailer model (in case project is expanded to additional stores)
 model Retailer {
   id        String   @id @default(uuid())
   name      String   @unique
@@ -26,6 +27,7 @@ model Retailer {
   @@map("retailers")
 }
 
+// product/item type model
 model Product {
   id          String   @id @default(uuid())
   externalId  String // ID from external API
@@ -45,6 +47,7 @@ model Product {
   @@map("products")
 }
 
+// specific product listing 
 model ProductListing {
   id           String   @id @default(uuid())
   productId    String
@@ -65,6 +68,7 @@ model ProductListing {
   @@map("product_listings")
 }
 
+// price history log (for listing)
 model PriceHistory {
   id        String   @id @default(uuid())
   listingId String
@@ -79,6 +83,7 @@ model PriceHistory {
   @@map("price_history")
 }
 
+// user model
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -94,6 +99,7 @@ model User {
   @@map("users")
 }
 
+// in-app alert model
 model PriceAlert {
   id                  String    @id @default(uuid())
   userId              String
@@ -116,6 +122,7 @@ model PriceAlert {
   @@map("price_alerts")
 }
 
+// notification model
 model Notification {
   id        String   @id @default(uuid())
   userId    String
@@ -134,6 +141,7 @@ model Notification {
   @@map("notifications")
 }
 
+// saved products
 model SavedSearch {
   id        String   @id @default(uuid())
   userId    String
@@ -148,15 +156,5 @@ model SavedSearch {
   @@map("saved_searches")
 }
 
-model IngestionLog {
-  id               String    @id @default(uuid())
-  source           String // 'FAKE_STORE_API', 'AMAZON_API'
-  status           String // 'SUCCESS', 'FAILED', 'PARTIAL'
-  productsIngested Int       @default(0)
-  errors           Json?
-  startedAt        DateTime  @default(now())
-  completedAt      DateTime?
 
-  @@index([source, startedAt])
-  @@map("ingestion_logs")
-}
+

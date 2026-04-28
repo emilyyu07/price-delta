@@ -35,7 +35,7 @@ app.use("/api/notifications/stream", notificationStreamRoutes);
 //global error handling
 app.use(errorHandler);
 
-//log if server is running
+//log if server is running (test server health)
 const server = app.listen(PORT, () => {
   console.log(`Server successfully running at http://localhost:${PORT}/health`);
 });

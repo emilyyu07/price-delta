@@ -4,6 +4,7 @@ Redis queue for scrape jobs:
 - Connects to Redis (supports both local and Upstash)
 - Defines a worker that processes scrape jobs and saves results to the database
 */
+
 import "dotenv/config";
 import { Queue, Worker, Job } from "bullmq";
 import { env } from "../config/env.js";
